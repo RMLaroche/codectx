@@ -16,7 +16,7 @@
 - 📅 **Timestamp Tracking**: Tracks when each file was last summarized with visual indicators
 
 ### Advanced Configuration System
-- ⚙️ **Multiple Config Sources**: YAML/JSON/TOML files, environment variables, CLI arguments
+- ⚙️ **Multiple Config Sources**: Global YAML file, environment variables, CLI arguments
 - 🔄 **API Retry Logic**: Configurable retry attempts (default: 3) with exponential backoff
 - 🤖 **Flexible LLM Support**: Extensible for multiple AI providers (Mistral, future: Claude, OpenAI, local models)
 - 📝 **Custom System Prompts**: Personalize AI summarization behavior
