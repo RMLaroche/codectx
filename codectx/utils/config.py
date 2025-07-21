@@ -17,7 +17,7 @@ def get_api_url() -> str:
 
 # Default configuration values
 DEFAULT_MODEL = "codestral-latest"
-TOKEN_THRESHOLD = 200  # Files with more tokens will be summarized
+TOKEN_THRESHOLD = 200  # Files with more estimated tokens will be summarized
 
 SUMMARIZE_SYSTEM_PROMPT = """
 You are an assistant that analyzes a source code file and produces a structured summary. Your goal is to help a developer understand the purpose of this file without including the raw code.

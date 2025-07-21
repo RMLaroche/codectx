@@ -42,14 +42,15 @@ def estimate_tokens(text: str) -> int:
     """
     Estimate token count for text.
     
-    This is a rough estimation based on character count.
-    More sophisticated tokenization could be implemented later.
+    This is a rough approximation using characters ÷ 4.
+    Real tokenization would require a tokenizer library but this
+    simple heuristic works well enough for file size thresholding.
     
     Args:
         text: Input text
         
     Returns:
-        Estimated token count
+        Estimated token count (characters ÷ 4)
     """
     return len(text) // 4
 

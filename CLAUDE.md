@@ -54,7 +54,7 @@ Configuration is done via environment variables:
 
 ### Core Workflow
 1. **Directory Walking** (`cli.py`): Traverses directory structure, respecting ignore patterns
-2. **File Processing** (`file_processor.py`): Reads file content and estimates token counts
+2. **File Processing** (`file_processor.py`): Reads file content and estimates token counts (rough estimation)
 3. **AI Summarization** (`api_client.py`): Sends files to AI API for structured summaries
 4. **Output Generation** (`file_writer.py`): Writes all summaries to `codectx.md`
 
@@ -93,7 +93,8 @@ __pycache__/*
 
 ### AI Summarization Logic
 - Files with <200 estimated tokens: copied as raw content
-- Files with ≥200 tokens: sent to AI for structured summary
+- Files with ≥200 estimated tokens: sent to AI for structured summary
+- Token estimation: rough approximation (characters ÷ 4)
 - Mock mode: simulates API calls with fake summaries for testing
 - Copy mode: forces raw content output for all files
 

@@ -165,8 +165,8 @@ The tool automatically creates `codectx.md` in the current directory with all su
 6. **Smart Completion**: Returns to menu with refreshed status
 
 ### File Processing Logic
-- **Files < 200 tokens**: Copied as raw content (small files)
-- **Files ≥ 200 tokens**: Sent to AI for intelligent summarization
+- **Files < 200 estimated tokens**: Copied as raw content (small files)
+- **Files ≥ 200 estimated tokens**: Sent to AI for intelligent summarization
 - **Modified files**: Marked with red timestamps until re-summarized
 - **Current files**: Shown with green timestamps and "Up to date" status
 
