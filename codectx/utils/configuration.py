@@ -1,29 +1,17 @@
 """
-Enhanced configuration system for codectx with multiple sources support.
+Simple global configuration system for codectx.
 
-Supports configuration from:
-1. Environment variables (backward compatibility) 
-2. Configuration files (.codectx.yml, .codectx.json, .codectx.toml)
-3. CLI arguments (highest priority)
+Configuration priority:
+1. CLI arguments (highest priority)
+2. Global user config file (~/.config/codectx/config.yml or ~/.codectx.yml)
+3. Environment variables (backward compatibility)
 4. Default values (fallback)
 """
 import os
-import json
 import yaml
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 from pathlib import Path
-
-# Try to import TOML support (optional)
-try:
-    import tomllib
-    HAS_TOML = True
-except ImportError:
-    try:
-        import tomli as tomllib
-        HAS_TOML = True
-    except ImportError:
-        HAS_TOML = False
 
 
 @dataclass
@@ -152,17 +140,29 @@ Follow these rules strictly:
 
 
 class ConfigurationLoader:
-    """Handles loading configuration from multiple sources with priority."""
+    """Simple global configuration loader for codectx."""
     
     @staticmethod
-    def load_config(config_file: Optional[str] = None, 
-                   cli_overrides: Optional[Dict[str, Any]] = None) -> CodectxConfig:
+    def get_global_config_path() -> Path:
+        """Get the path to the global configuration file."""
+        # Try XDG config directory first, fall back to home directory
+        if config_home := os.getenv('XDG_CONFIG_HOME'):
+            return Path(config_home) / 'codectx' / 'config.yml'
+        else:
+            # Try ~/.config/codectx/config.yml first
+            config_dir = Path.home() / '.config' / 'codectx'
+            if config_dir.exists() or not (Path.home() / '.codectx.yml').exists():
+                return config_dir / 'config.yml'
+            else:
+                # Fall back to ~/.codectx.yml if it already exists
+                return Path.home() / '.codectx.yml'
+    
+    @staticmethod
+    def load_config(cli_overrides: Optional[Dict[str, Any]] = None) -> CodectxConfig:
         """
-        Load configuration from multiple sources with priority:
-        1. CLI arguments (highest priority)
-        2. Configuration file
-        3. Environment variables
-        4. Defaults (lowest priority)
+        Load configuration from global config and environment with CLI overrides.
+        
+        Priority: CLI args > global config > env vars > defaults
         """
         # Start with defaults
         config_data = {}
@@ -171,8 +171,8 @@ class ConfigurationLoader:
         env_config = ConfigurationLoader._load_from_env()
         config_data.update(env_config)
         
-        # Load from configuration file
-        file_config = ConfigurationLoader._load_from_file(config_file)
+        # Load from global configuration file
+        file_config = ConfigurationLoader._load_global_config()
         if file_config:
             config_data.update(file_config)
         
@@ -237,105 +237,99 @@ class ConfigurationLoader:
         return env_config
     
     @staticmethod
-    def _load_from_file(config_file: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Load configuration from file (YAML, JSON, or TOML)."""
-        if config_file:
-            config_path = Path(config_file)
-        else:
-            # Look for default config files in current directory
-            for filename in ['.codectx.yml', '.codectx.yaml', '.codectx.json', '.codectx.toml']:
-                config_path = Path(filename)
-                if config_path.exists():
-                    break
-            else:
-                return None
+    def _load_global_config() -> Optional[Dict[str, Any]]:
+        """Load configuration from global config file, creating it if it doesn't exist."""
+        config_path = ConfigurationLoader.get_global_config_path()
         
+        # Create config file with defaults if it doesn't exist
         if not config_path.exists():
-            return None
+            ConfigurationLoader._create_default_config(config_path)
+            return {}  # Return empty dict as defaults will be used
         
         try:
             content = config_path.read_text(encoding='utf-8')
-            suffix = config_path.suffix.lower()
-            
-            if suffix in ['.yml', '.yaml']:
-                return yaml.safe_load(content)
-            elif suffix == '.json':
-                return json.loads(content)
-            elif suffix == '.toml' and HAS_TOML:
-                return tomllib.loads(content)
-            else:
-                print(f"Unsupported config file format: {suffix}")
-                return None
-                
+            return yaml.safe_load(content) or {}
         except Exception as e:
-            print(f"Error loading config file {config_path}: {e}")
+            print(f"Warning: Error loading config file {config_path}: {e}")
+            print("Using default configuration.")
             return None
     
     @staticmethod
-    def generate_sample_config(format: str = 'yaml') -> str:
-        """Generate a sample configuration file content."""
-        config = CodectxConfig()
+    def _create_default_config(config_path: Path) -> None:
+        """Create default configuration file at the specified path."""
+        # Ensure parent directory exists
+        config_path.parent.mkdir(parents=True, exist_ok=True)
         
-        if format.lower() == 'yaml':
-            return ConfigurationLoader._generate_yaml_config(config)
-        elif format.lower() == 'json':
-            return ConfigurationLoader._generate_json_config(config)
-        elif format.lower() == 'toml':
-            return ConfigurationLoader._generate_toml_config(config)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        # Generate default YAML config
+        default_content = ConfigurationLoader._generate_default_yaml_config()
+        
+        # Write to file
+        config_path.write_text(default_content, encoding='utf-8')
+        print(f"Created default configuration file: {config_path}")
+        print("Edit this file to customize your codectx settings.")
     
     @staticmethod
-    def _generate_yaml_config(config: CodectxConfig) -> str:
-        """Generate YAML configuration with comments."""
-        return """
-# codectx configuration file
-# This file allows you to customize codectx behavior beyond environment variables
+    def get_config_path_for_display() -> str:
+        """Get config path as string for display purposes."""
+        return str(ConfigurationLoader.get_global_config_path())
+    
+    @staticmethod  
+    def edit_config() -> None:
+        """Open the global configuration file in the default editor."""
+        config_path = ConfigurationLoader.get_global_config_path()
+        
+        # Create config if it doesn't exist
+        if not config_path.exists():
+            ConfigurationLoader._create_default_config(config_path)
+        
+        # Try to open with default editor
+        import subprocess
+        import sys
+        
+        editor = os.getenv('EDITOR', 'nano' if sys.platform != 'win32' else 'notepad')
+        try:
+            subprocess.run([editor, str(config_path)], check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"Could not open editor. Please edit the config file manually: {config_path}")
+    
+    @staticmethod
+    def generate_sample_config() -> str:
+        """Generate sample YAML configuration content."""
+        return ConfigurationLoader._generate_default_yaml_config()
+    
+    @staticmethod
+    def _generate_default_yaml_config() -> str:
+        """Generate default YAML configuration with comments."""
+        return """# codectx - Global Configuration File
+# This file stores your personal preferences for codectx
+# Location: This file is stored in your user directory and applies to all projects
 
-# API Configuration
-api_key: "your-api-key-here"  # or set CODECTX_API_KEY env var
-api_url: ""  # optional custom API endpoint
-api_retry_attempts: 3  # number of retry attempts for failed API calls
-api_timeout: 30.0  # timeout in seconds for each API call
+# API Configuration (most important settings)
+api_key: ""  # Your AI API key - REQUIRED for summarization
+api_url: "https://codestral.mistral.ai/v1/chat/completions"  # Default Mistral API endpoint
+api_retry_attempts: 3  # Number of retry attempts for failed API calls
+api_timeout: 30.0  # Timeout in seconds for each API request
 
-# LLM Configuration (extensible for future providers)
-llm_provider: "mistral"  # current: "mistral", future: "claude", "openai", "local"
-llm_model: "codestral-latest"
-# custom_system_prompt: |
-#   Your custom prompt here...
-#   Can be multiline
+# LLM Configuration
+llm_provider: "mistral"  # Current: mistral (future: claude, openai, local)
+llm_model: "codestral-latest"  # Model name to use
 
-# File Processing
-token_threshold: 200  # files above this estimated token count get summarized
-max_file_size_mb: 10.0  # skip files larger than this
-file_extensions:  # file types to process
-  - ".py"
-  - ".js"
-  - ".ts"
-  - ".md"
-  # ... add more as needed
-encoding_priority:  # encodings to try when reading files
-  - "utf-8"
-  - "latin1"
-  - "cp1252"
+# Processing Preferences
+token_threshold: 200  # Files above this estimated token count get AI summarized
+max_file_size_mb: 10.0  # Skip files larger than this (prevents accidents)
+concurrent_requests: 5  # Number of parallel API requests (higher = faster but more load)
 
-# Processing Behavior
-concurrent_requests: 5  # number of parallel API requests
-default_mode: "update"  # default processing mode
-cache_enabled: false  # enable API response caching (future feature)
-cache_ttl_hours: 24
+# Output Preferences  
+output_filename: "codectx.md"  # Default output filename
+log_level: "INFO"  # Logging level: DEBUG, INFO, WARNING, ERROR
+show_progress: true  # Show progress bars and status updates
+color_output: true  # Use colored console output
 
-# Output Configuration
-output_filename: "codectx.md"
-output_format: "markdown"  # future: "json", "html"
-timestamp_format: "%Y-%m-%d %H:%M:%S"
+# Advanced Settings (usually don't need to change these)
+default_mode: "update"  # Default processing mode
+timestamp_format: "%Y-%m-%d %H:%M:%S"  # Timestamp format in output
 
-# UI/Display
-log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-show_progress: true
-color_output: true
-
-# File Ignoring (in addition to .codectxignore)
+# Global ignore patterns (in addition to project .codectxignore files)
 ignore_patterns:
   - "__pycache__/*"
   - "*.pyc"
@@ -345,85 +339,17 @@ ignore_patterns:
   - ".idea/*"
   - "dist/*"
   - "build/*"
+
+# Uncomment and customize if you want a custom AI prompt:
+# custom_system_prompt: |
+#   You are a helpful assistant that creates concise code summaries.
+#   Focus on the main purpose and key functions of each file.
 """.strip()
     
-    @staticmethod
-    def _generate_json_config(config: CodectxConfig) -> str:
-        """Generate JSON configuration."""
-        sample_config = {
-            "api_key": "your-api-key-here",
-            "api_url": "",
-            "api_retry_attempts": 3,
-            "api_timeout": 30.0,
-            "llm_provider": "mistral",
-            "llm_model": "codestral-latest",
-            "token_threshold": 200,
-            "max_file_size_mb": 10.0,
-            "concurrent_requests": 5,
-            "default_mode": "update",
-            "cache_enabled": False,
-            "cache_ttl_hours": 24,
-            "output_filename": "codectx.md",
-            "output_format": "markdown",
-            "timestamp_format": "%Y-%m-%d %H:%M:%S",
-            "log_level": "INFO",
-            "show_progress": True,
-            "color_output": True,
-            "file_extensions": [".py", ".js", ".ts", ".md"],
-            "encoding_priority": ["utf-8", "latin1", "cp1252"],
-            "ignore_patterns": ["__pycache__/*", "*.pyc", ".git/*", "node_modules/*"]
-        }
-        return json.dumps(sample_config, indent=2)
-    
-    @staticmethod  
-    def _generate_toml_config(config: CodectxConfig) -> str:
-        """Generate TOML configuration."""
-        return """
-# codectx configuration file
-
-[api]
-key = "your-api-key-here"
-url = ""
-retry_attempts = 3
-timeout = 30.0
-
-[llm]
-provider = "mistral"
-model = "codestral-latest"
-# custom_system_prompt = '''
-# Your custom prompt here...
-# '''
-
-[processing]
-token_threshold = 200
-max_file_size_mb = 10.0
-concurrent_requests = 5
-default_mode = "update"
-cache_enabled = false
-cache_ttl_hours = 24
-
-[output]
-filename = "codectx.md"
-format = "markdown"
-timestamp_format = "%Y-%m-%d %H:%M:%S"
-
-[ui]
-log_level = "INFO"
-show_progress = true
-color_output = true
-
-[files]
-extensions = [".py", ".js", ".ts", ".md"]
-encoding_priority = ["utf-8", "latin1", "cp1252"]
-ignore_patterns = ["__pycache__/*", "*.pyc", ".git/*", "node_modules/*"]
-""".strip()
-
-
 # Convenience functions for backward compatibility
-def get_config(config_file: Optional[str] = None, 
-              cli_overrides: Optional[Dict[str, Any]] = None) -> CodectxConfig:
+def get_config(cli_overrides: Optional[Dict[str, Any]] = None) -> CodectxConfig:
     """Main function to get configuration."""
-    return ConfigurationLoader.load_config(config_file, cli_overrides)
+    return ConfigurationLoader.load_config(cli_overrides)
 
 
 def get_api_key() -> Optional[str]:

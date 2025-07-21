@@ -15,12 +15,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  codectx                    # Enter interactive mode
+  codectx                    # Enter interactive mode (auto-creates config on first run)
   codectx /path/to/project   # Update changed files only (default)
-  codectx --interactive      # Force interactive mode with menu
+  codectx --edit-config      # Open global configuration in editor
+  codectx --show-config      # Display current configuration
   codectx --scan-all .       # Process all files (override update mode)
   codectx --mock-mode .      # Test without API calls
-  codectx --copy-mode .      # Copy files without summarization
+  codectx --token-threshold 50 .  # Override token threshold for this run
         """
     )
     
@@ -58,8 +59,14 @@ Examples:
     
     # Configuration arguments
     parser.add_argument(
-        '--config', '-c',
-        help='Path to configuration file (YAML, JSON, or TOML)'
+        '--edit-config',
+        action='store_true',
+        help='Open global configuration file in default editor'
+    )
+    parser.add_argument(
+        '--show-config',
+        action='store_true', 
+        help='Show current configuration and exit'
     )
     parser.add_argument(
         '--api-key',
@@ -112,28 +119,52 @@ Examples:
         help='Maximum file size in MB to process (default: 10.0)'
     )
     parser.add_argument(
-        '--generate-config',
-        choices=['yaml', 'json', 'toml'],
-        help='Generate a sample configuration file and exit'
+        '--init-config',
+        action='store_true',
+        help='Initialize global configuration file with defaults (if not exists)'
     )
 
     args = parser.parse_args()
     
-    # Handle --generate-config option
-    if args.generate_config:
+    # Handle configuration management options
+    if args.edit_config:
         try:
-            sample_config = ConfigurationLoader.generate_sample_config(args.generate_config)
-            filename = f".codectx.{args.generate_config}"
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(sample_config)
-            
-            print(f"Generated sample configuration file: {filename}")
-            print("Edit this file to customize your codectx settings.")
+            ConfigurationLoader.edit_config()
             return
-            
         except Exception as e:
-            print(f"Error generating config file: {e}")
+            print(f"Error opening configuration file: {e}")
+            return
+    
+    if args.show_config:
+        try:
+            config = ConfigurationLoader.load_config()
+            config_path = ConfigurationLoader.get_config_path_for_display()
+            print(f"Configuration loaded from: {config_path}")
+            print("\nCurrent configuration:")
+            print(f"  API Key: {'***set***' if config.api_key else 'not set'}")
+            print(f"  API URL: {config.api_url}")
+            print(f"  Retry attempts: {config.api_retry_attempts}")
+            print(f"  Token threshold: {config.token_threshold}")
+            print(f"  LLM provider: {config.llm_provider}")
+            print(f"  LLM model: {config.llm_model}")
+            print(f"  Output filename: {config.output_filename}")
+            print(f"  Log level: {config.log_level}")
+            return
+        except Exception as e:
+            print(f"Error loading configuration: {e}")
+            return
+    
+    if args.init_config:
+        try:
+            config_path = ConfigurationLoader.get_global_config_path()
+            if config_path.exists():
+                print(f"Configuration file already exists: {config_path}")
+                print("Use --edit-config to modify it.")
+            else:
+                ConfigurationLoader._create_default_config(config_path)
+            return
+        except Exception as e:
+            print(f"Error creating configuration file: {e}")
             return
     
     # Build CLI overrides dictionary
@@ -141,7 +172,7 @@ Examples:
     
     # Load configuration with CLI overrides
     try:
-        config = ConfigurationLoader.load_config(args.config, cli_overrides)
+        config = ConfigurationLoader.load_config(cli_overrides)
     except Exception as e:
         print(f"Error loading configuration: {e}")
         return
