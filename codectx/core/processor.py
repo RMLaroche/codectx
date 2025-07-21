@@ -109,11 +109,14 @@ class FileProcessor:
             write_summaries_to_file(final_summaries, self.config.output_file)
     
     def _merge_summaries(self, all_files: List[FileInfo]) -> List[str]:
-        """Merge new summaries with existing up-to-date summaries"""
+        """Merge new summaries with ALL existing summaries"""
         final_summaries = []
         processed_files = {summary.split('\n')[0].replace('## ', ''): summary for summary in self.summaries}
         
-        # Add summaries for all files, preserving order
+        # Create a set of current file paths for quick lookup
+        current_file_paths = {file_info.path for file_info in all_files}
+        
+        # First, add summaries for all currently discovered files
         for file_info in all_files:
             if file_info.path in processed_files:
                 # Use new summary for processed files
@@ -122,6 +125,13 @@ class FileProcessor:
                 # Use existing summary for up-to-date files
                 existing_meta = self.summary_parser.existing_summaries[file_info.path]
                 final_summaries.append(existing_meta.content)
+        
+        # Then, add any existing summaries for files not in current discovery
+        # (files that were summarized before but don't exist anymore or aren't being processed)
+        if self.summary_parser:
+            for existing_path, existing_meta in self.summary_parser.existing_summaries.items():
+                if existing_path not in current_file_paths and existing_path not in processed_files:
+                    final_summaries.append(existing_meta.content)
         
         return final_summaries
     

@@ -28,6 +28,9 @@ class SummaryParser:
             # Split content into sections by "## " headers
             sections = re.split(r'\n## ', content)
             
+            current_file_section = ""
+            current_file_path = ""
+            
             for i, section in enumerate(sections):
                 if i == 0:
                     # Skip the header section
@@ -36,17 +39,35 @@ class SummaryParser:
                 # Add back the "## " prefix (except for first section after split)
                 section = "## " + section
                 
-                # Extract file path from header
-                file_path_match = re.match(r'## (.+)', section)
-                if not file_path_match:
+                # Extract section header 
+                header_match = re.match(r'## (.+)', section)
+                if not header_match:
                     continue
                 
-                file_path = file_path_match.group(1).strip()
+                header_line = header_match.group(1).strip()
                 
-                # Parse metadata from section
-                metadata = SummaryMetadata.parse_from_content(section, file_path)
+                # Check if this is a file path section (timestamp pattern) or content section
+                if re.search(r'Summarized on \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', section):
+                    # This is a main file section with timestamp
+                    # Save previous file if we have one
+                    if current_file_section and current_file_path:
+                        metadata = SummaryMetadata.parse_from_content(current_file_section, current_file_path)
+                        if metadata:
+                            self.existing_summaries[current_file_path] = metadata
+                    
+                    # Start new file section
+                    current_file_path = header_line
+                    current_file_section = section
+                    
+                elif current_file_section and header_line.startswith("File: "):
+                    # This is a content section belonging to the current file
+                    current_file_section += "\n\n" + section
+            
+            # Don't forget the last file
+            if current_file_section and current_file_path:
+                metadata = SummaryMetadata.parse_from_content(current_file_section, current_file_path)
                 if metadata:
-                    self.existing_summaries[file_path] = metadata
+                    self.existing_summaries[current_file_path] = metadata
                     
         except Exception as e:
             # If we can't parse existing file, treat as if no summaries exist
