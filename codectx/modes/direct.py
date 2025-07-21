@@ -114,7 +114,8 @@ class DirectMode:
             display_error(self.console, f"Error writing output: {e}")
 
 
-def run_direct_mode(directory_path: str, mock_mode: bool = False, copy_mode: bool = False) -> None:
+def run_direct_mode(directory_path: str, mock_mode: bool = False, copy_mode: bool = False, 
+                    codectx_config=None) -> None:
     """
     Run direct mode with the given parameters.
     
@@ -122,7 +123,14 @@ def run_direct_mode(directory_path: str, mock_mode: bool = False, copy_mode: boo
         directory_path: Directory to process
         mock_mode: Whether to use mock mode
         copy_mode: Whether to use copy mode
+        codectx_config: Optional CodectxConfig object with advanced settings
     """
+    from ..utils.configuration import get_config
+    
+    # Use provided config or load default
+    if codectx_config is None:
+        codectx_config = get_config()
+    
     # Determine processing mode
     if mock_mode:
         mode = ProcessingMode.MOCK
@@ -132,11 +140,12 @@ def run_direct_mode(directory_path: str, mock_mode: bool = False, copy_mode: boo
         mode = ProcessingMode.AI_SUMMARIZATION
     
     # Create configuration
-    config = ProcessingConfig(
-        mode=mode,
-        directory_path=directory_path
-    )
+    config = ProcessingConfig()
+    config.mode = mode
+    config.directory_path = directory_path
+    config.output_file = codectx_config.output_filename
     
     # Run direct mode
     direct_mode = DirectMode()
+    direct_mode.codectx_config = codectx_config  # Pass the config to the mode
     direct_mode.run(config)
