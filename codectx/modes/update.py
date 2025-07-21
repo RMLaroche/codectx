@@ -107,13 +107,14 @@ def run_update_mode(
         display_info(console, "🤖 Running AI summarization")
     
     # Create configuration
-    config = ProcessingConfig()
-    config.mode = mode
-    config.directory_path = directory_path
-    config.output_file = codectx_config.output_filename
+    config = ProcessingConfig(
+        mode=mode,
+        directory_path=directory_path,
+        output_file=codectx_config.output_filename
+    )
     
     # Process only the outdated files
-    processor = FileProcessor(config)
+    processor = FileProcessor(config, codectx_config)
     
     try:
         display_info(console, f"🚀 Processing {len(outdated_files)} outdated files...")

@@ -79,7 +79,7 @@ class DirectMode:
             files: List of files to process
             config: Processing configuration
         """
-        processor = FileProcessor(config)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -140,10 +140,11 @@ def run_direct_mode(directory_path: str, mock_mode: bool = False, copy_mode: boo
         mode = ProcessingMode.AI_SUMMARIZATION
     
     # Create configuration
-    config = ProcessingConfig()
-    config.mode = mode
-    config.directory_path = directory_path
-    config.output_file = codectx_config.output_filename
+    config = ProcessingConfig(
+        mode=mode,
+        directory_path=directory_path,
+        output_file=codectx_config.output_filename
+    )
     
     # Run direct mode
     direct_mode = DirectMode()

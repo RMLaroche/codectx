@@ -287,11 +287,12 @@ class InteractiveMode:
         # Create configuration
         config = ProcessingConfig(
             mode=mode,
-            directory_path=discovery.directory
+            directory_path=discovery.directory,
+            output_file=getattr(self, 'codectx_config', None).output_filename if hasattr(self, 'codectx_config') and self.codectx_config else "codectx.md"
         )
         
         # Create processor
-        processor = FileProcessor(config)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -392,11 +393,12 @@ class InteractiveMode:
         # Create configuration
         config = ProcessingConfig(
             mode=mode,
-            directory_path=discovery.directory
+            directory_path=discovery.directory,
+            output_file=getattr(self, 'codectx_config', None).output_filename if hasattr(self, 'codectx_config') and self.codectx_config else "codectx.md"
         )
         
         # Create processor
-        processor = FileProcessor(config)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
         
         # Initialize progress bar
         progress = Progress(console=self.console)
