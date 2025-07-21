@@ -292,7 +292,7 @@ class InteractiveMode:
         )
         
         # Create processor
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -398,7 +398,7 @@ class InteractiveMode:
         )
         
         # Create processor
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
         
         # Initialize progress bar
         progress = Progress(console=self.console)

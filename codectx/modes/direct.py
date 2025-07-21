@@ -79,7 +79,7 @@ class DirectMode:
             files: List of files to process
             config: Processing configuration
         """
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
         
         # Initialize progress bar
         progress = Progress(console=self.console)

@@ -114,7 +114,7 @@ def run_update_mode(
     )
     
     # Process only the outdated files
-    processor = FileProcessor(config, codectx_config)
+    processor = FileProcessor(config, codectx_config, summary_parser)
     
     try:
         display_info(console, f"🚀 Processing {len(outdated_files)} outdated files...")
@@ -133,10 +133,10 @@ def run_update_mode(
             else:
                 console.print(f"{get_timestamp()} [red]❌ {file_info.display_path}: {result.error_message}[/red]")
         
-        # Write output
+        # Write output with all files (both updated and outdated)
         console.print()
         display_info(console, "📝 Writing output...")
-        processor.write_output()
+        processor.write_output(discovery.files_to_process)
         
         # Show completion message
         display_processing_complete(
