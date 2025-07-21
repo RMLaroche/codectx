@@ -74,100 +74,51 @@ codectx --copy-mode
 - An AI API key (see configuration section)
 - PyYAML (automatically installed)
 
-## ⚙️ Simple Global Configuration
+## ⚙️ Configuration
 
-codectx uses a **global user configuration** that applies to all your projects. Configuration priority:
-1. **CLI arguments** (highest priority - for one-time overrides)
-2. **Global config file** (`~/.config/codectx/config.yml`)  
-3. **Environment variables** (backward compatibility)
-4. **Default values** (fallback)
+**Simple global config**: One file (`~/.config/codectx/config.yml`) for all projects.
+
+**Priority**: CLI arguments > Environment variables > Config file > Defaults
 
 ### Quick Setup
 
-codectx automatically creates your global config file on first run. You can also:
-
 ```bash
-# Create/initialize global config file
-codectx --init-config
-
-# Edit your global configuration  
-codectx --edit-config
-
-# View current configuration
-codectx --show-config
+codectx --init-config    # Create config file  
+codectx --edit-config    # Edit your settings
+codectx --show-config    # View current settings
 ```
 
-### CLI Configuration Options
+### Configuration File
 
-Override any setting via command-line:
-
-```bash
-# API Configuration
-codectx --api-key "your-key" --api-url "https://api.example.com"
-codectx --retry-attempts 5 --api-timeout 45.0
-
-# Processing Configuration  
-codectx --token-threshold 100 --max-file-size 20.0
-codectx --concurrent-requests 10 --output-file "my-summary.md"
-
-# LLM Configuration
-codectx --llm-provider mistral --llm-model "codestral-latest"
-codectx --log-level DEBUG
-
-# Configuration management
-codectx --edit-config     # Open global config in your editor
-codectx --show-config     # Display current settings
-```
-
-### Environment Variables (Legacy Support)
-
-Still supported for backward compatibility:
-```bash
-export CODECTX_API_KEY="your-api-key-here"
-export CODECTX_API_URL="https://your-api-endpoint.com"
-export CODECTX_API_RETRY_ATTEMPTS=5
-export CODECTX_TOKEN_THRESHOLD=150
-export CODECTX_LLM_MODEL="codestral-latest"
-```
-
-### Global Configuration File
-
-Your global config file is located at `~/.config/codectx/config.yml` (or `~/.codectx.yml`):
+Located at `~/.config/codectx/config.yml` (auto-created on first run):
 
 ```yaml
-# codectx - Global Configuration File
-# This file stores your personal preferences for codectx
-
-# API Configuration (most important settings)
-api_key: "your-api-key-here"  # REQUIRED for AI summarization
-api_url: "https://codestral.mistral.ai/v1/chat/completions"
+# API Configuration (REQUIRED)
+api_key: "your-api-key-here"
+api_url: "https://codestral.mistral.ai/v1/chat/completions" 
 api_retry_attempts: 3
 api_timeout: 30.0
 
-# LLM Configuration  
-llm_provider: "mistral"
-llm_model: "codestral-latest"
-
-# Processing Preferences
-token_threshold: 200  # Files above this get AI-summarized
-max_file_size_mb: 10.0  # Skip files larger than this
-concurrent_requests: 5  # Parallel API requests
-
-# Output Preferences
-output_filename: "codectx.md"  # Default output filename
+# Processing Preferences  
+token_threshold: 200      # Files above this get AI-summarized
+max_file_size_mb: 10.0   # Skip files larger than this
+concurrent_requests: 5    # Parallel API requests
 log_level: "INFO"
-show_progress: true
+```
 
-# Global ignore patterns (in addition to project .codectxignore files)
-ignore_patterns:
-  - "__pycache__/*"
-  - "*.pyc"
-  - ".git/*"
-  - "node_modules/*"
+### Environment Variables
 
-# Uncomment to use custom AI prompt:
-# custom_system_prompt: |
-#   Your custom prompt here...
+```bash
+export CODECTX_API_KEY="your-api-key-here"
+export CODECTX_TOKEN_THRESHOLD=150
+export CODECTX_API_RETRY_ATTEMPTS=5
+```
+
+### CLI Overrides
+
+```bash
+codectx --token-threshold 50 --retry-attempts 5 /path/to/project
+codectx --output-file "project-summary.md" .
 ```
 
 ### Ignore Patterns
@@ -198,96 +149,34 @@ codectx includes sensible defaults for common files (`.git/`, `node_modules/`, `
 
 ## 📖 Usage Examples
 
-### Smart Update Mode (Default)
 ```bash
-# Only updates files that have changed - much faster!
-codectx /path/to/project         
+# Interactive mode (auto-creates config on first run)
+codectx
 
-# First run: processes all files
-# Subsequent runs: only processes modified files
-```
-
-### Interactive Mode
-```bash
-cd my-project
-codectx  # Explore files with enhanced UI and dynamic menus
-```
-
-**Interactive features:**
-- 📊 **Enhanced Tables**: Color-coded dates, emoji headers, status indicators
-- 🎯 **Dynamic Menu**: Shows file counts, greys out "Update" when all files are current
-- 📅 **Visual Status**: Red dates for outdated files, green for up-to-date
-- ⚡ **Smart Defaults**: Automatically focuses on the most relevant action
-
-### Processing Modes with Configuration
-```bash
-# Update mode (default - fastest)
+# Update changed files only (default, fastest)  
 codectx /path/to/project
 
-# Scan all files (when you need to reprocess everything)  
-codectx --scan-all /path/to/project
+# Process all files
+codectx --scan-all /path/to/project  
 
-# Testing and development
-codectx --mock-mode .           # Test without API calls
-codectx --copy-mode .           # Raw content only (no AI)
+# Test without API calls
+codectx --mock-mode .
 
-# Advanced configuration examples (one-time overrides)
-codectx --token-threshold 50 --retry-attempts 3 /path/to/project
-codectx --output-file project-summary.md --llm-model "different-model" .
-codectx --api-timeout 60.0 --log-level DEBUG .
+# Configuration management
+codectx --edit-config           # Edit global settings
+codectx --show-config           # View current settings
 
-# Force interactive mode
-codectx --interactive /path/to/project
-```
-
-### Configuration Management Examples
-
-```bash
-# First time setup
-codectx --init-config                    # Create global config file
-codectx --edit-config                    # Open config in your editor
-# (Edit your API key and preferences)
-codectx .                               # Run with your global settings
-
-# Check current configuration
-codectx --show-config                   # Display all current settings
-
-# One-time overrides (don't change your global config)
-codectx --token-threshold 25 --concurrent-requests 8 /my/project
-codectx --api-key "temp-key" --retry-attempts 1 --mock-mode .
-codectx --output-file "special-analysis.md" /important/project
+# One-time overrides
+codectx --token-threshold 50 --output-file "summary.md" .
 ```
 
 ## 🔍 How It Works
 
-### Simple Configuration System (New!)
-1. **Global Config**: One config file in `~/.config/codectx/config.yml` for all projects
-2. **Auto-Creation**: Automatically created on first run with sensible defaults
-3. **Priority System**: CLI args → global config → env vars → defaults
-4. **Easy Management**: `--edit-config` to modify, `--show-config` to view
-
-### Smart Update Mode (Default)
-1. **File Discovery**: Scans directory and identifies all processable files
-2. **Timestamp Analysis**: Checks existing summary file for timestamps
-3. **Smart Filtering**: Only processes files modified since their last summary
-4. **Efficient Processing**: Dramatically faster on subsequent runs with retry logic
-5. **Output**: Updates summary file with new timestamps and summaries
-
-### Interactive Mode  
-1. **Enhanced Discovery**: Shows color-coded table with file status indicators
-2. **Dynamic Menu**: Displays file counts and smart options based on current state
-3. **Visual Feedback**: Red dates for outdated files, green for up-to-date
-4. **User Selection**: Choose between update, scan all, mock, or copy modes
-5. **Live Processing**: Real-time table updates showing progress
-6. **Smart Completion**: Returns to menu with refreshed status
-
-### File Processing Logic (Configurable!)
-- **Configurable Token Threshold**: Default 200 tokens, customize via `--token-threshold`
-- **Below Threshold**: Files copied as raw content (small files)
-- **Above Threshold**: Sent to AI for intelligent summarization with retry logic
-- **API Resilience**: Automatic retry with exponential backoff on failures
-- **Custom Prompts**: Use your own AI prompts for specialized summarization
-- **File Size Limits**: Skip files above configured size limit (default 10MB)
+1. **File Discovery**: Scans directory, respecting ignore patterns
+2. **Smart Update**: Only processes files changed since last summary (timestamps)
+3. **Token Analysis**: Files < 200 tokens → raw content, ≥200 tokens → AI summary
+4. **API Retry**: Automatic retry with exponential backoff on failures
+5. **Output**: Generates `codectx.md` with structured summaries and timestamps
 
 ## 📊 Output Format
 
@@ -325,70 +214,35 @@ Summarized on 2024-01-15 14:29:45
 - **Smart updates**: Only files modified after their summary date are reprocessed
 - **Visual indicators**: UI shows file status with color-coded timestamps
 
-## ⚡ Performance & Reliability Benefits
+## ⚡ Performance & Reliability
 
-### Smart Update Mode Performance
-- **First run**: Processes all files (same as before)
-- **Subsequent runs**: Only processes changed files (often 90%+ faster)
-- **Large projects**: Massive time savings on iterative development
-- **Visual feedback**: Instantly see which files need attention
+- **Smart Updates**: Only processes changed files (often 90%+ faster on subsequent runs)
+- **API Retry Logic**: Automatic retry with exponential backoff on failures  
+- **Concurrent Processing**: Configurable parallel requests for speed
+- **File Size Protection**: Skip oversized files automatically
 
-### Enhanced Reliability (New!)
-- **API Retry Logic**: Automatically retries failed API calls with exponential backoff
-- **Configurable Timeouts**: Adjust timeout values for different network conditions
-- **Error Recovery**: Graceful handling of temporary network issues
-- **File Size Protection**: Skip oversized files to prevent processing issues
-- **Concurrent Processing**: Configurable parallel requests for faster processing
-
-**Example**: A 100-file project might have only 2-3 changed files, processing in seconds instead of minutes. With retry logic, temporary network issues won't stop your analysis.
+**Example**: 100-file project with 2-3 changes processes in seconds, not minutes.
 
 ## 🛠️ Development
 
-### Local Installation
-
 ```bash
+# Install from source
 git clone https://github.com/RMLaroche/codectx.git
 cd codectx
 pip install -e .
-```
 
-### Running Tests
-
-```bash
-# Mock mode for testing
-codectx --mock-mode
-
-# Test configuration features
-codectx --generate-config yaml
-codectx --token-threshold 10 --mock-mode .
-
-# Test on sample directory
-mkdir test_dir
-echo "print('hello')" > test_dir/test.py
-codectx test_dir --mock-mode
-```
-
-### Configuration Testing
-
-```bash
-# Setup and test global configuration
-codectx --init-config           # Create config if needed
-codectx --show-config          # Verify your settings
-codectx --mock-mode .          # Test with your global config
-
-# Test CLI overrides
-codectx --token-threshold 1 --retry-attempts 1 --mock-mode test_dir
+# Test
+codectx --init-config          # Setup config  
+codectx --mock-mode .          # Test without API calls
 ```
 
 ## 🔒 Privacy & Security
 
-- codectx sends file contents to your configured AI API for summarization
-- No data is stored permanently by codectx itself
-- **File Size Limits**: Configurable max file size to prevent accidental large file processing
-- **Ignore Patterns**: Multiple ways to exclude sensitive files (`.codectxignore`, config files)
-- **Mock Mode**: Use `--mock-mode` for testing without any API calls
-- **Local Configuration**: All settings stored locally, no telemetry or tracking
-- **API Key Security**: Support for environment variables and secure config files
+- File contents sent to your configured AI API for summarization
+- No data stored permanently by codectx
+- Use `.codectxignore` and file size limits to exclude sensitive files  
+- Use `--mock-mode` for testing without API calls
+- All settings stored locally, no telemetry
 
 ## 🤝 Contributing
 

@@ -2,9 +2,9 @@
 Simple global configuration system for codectx.
 
 Configuration priority:
-1. CLI arguments (highest priority)
-2. Global user config file (~/.config/codectx/config.yml or ~/.codectx.yml)
-3. Environment variables (backward compatibility)
+1. CLI arguments (highest priority - one-time overrides)
+2. Environment variables (deployment/CI overrides)
+3. Global user config file (~/.config/codectx/config.yml)
 4. Default values (fallback)
 """
 import os
@@ -160,23 +160,23 @@ class ConfigurationLoader:
     @staticmethod
     def load_config(cli_overrides: Optional[Dict[str, Any]] = None) -> CodectxConfig:
         """
-        Load configuration from global config and environment with CLI overrides.
+        Load configuration with proper priority order.
         
-        Priority: CLI args > global config > env vars > defaults
+        Priority: CLI args > env vars > global config > defaults
         """
         # Start with defaults
         config_data = {}
-        
-        # Load from environment variables
-        env_config = ConfigurationLoader._load_from_env()
-        config_data.update(env_config)
         
         # Load from global configuration file
         file_config = ConfigurationLoader._load_global_config()
         if file_config:
             config_data.update(file_config)
         
-        # Apply CLI overrides
+        # Load from environment variables (higher priority than config file)
+        env_config = ConfigurationLoader._load_from_env()
+        config_data.update(env_config)
+        
+        # Apply CLI overrides (highest priority)
         if cli_overrides:
             config_data.update(cli_overrides)
         

@@ -137,9 +137,12 @@ Examples:
     
     if args.show_config:
         try:
-            config = ConfigurationLoader.load_config()
+            # Build CLI overrides for show-config too
+            cli_overrides = _build_cli_overrides(args)
+            config = ConfigurationLoader.load_config(cli_overrides)
             config_path = ConfigurationLoader.get_config_path_for_display()
             print(f"Configuration loaded from: {config_path}")
+            print("Priority: CLI args > Environment variables > Config file > Defaults")
             print("\nCurrent configuration:")
             print(f"  API Key: {'***set***' if config.api_key else 'not set'}")
             print(f"  API URL: {config.api_url}")
