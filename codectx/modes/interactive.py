@@ -292,7 +292,10 @@ class InteractiveMode:
         )
         
         # Create processor
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
+        # Create summary parser to preserve existing summaries
+        from ..core.summary_parser import SummaryParser
+        summary_parser = SummaryParser(config.output_file)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), summary_parser)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -314,7 +317,7 @@ class InteractiveMode:
         
         # Write output
         try:
-            processor.write_output()
+            processor.write_output(discovery.files_to_process)
             display_processing_complete(
                 self.console,
                 len(discovery.files_to_process),
@@ -398,7 +401,10 @@ class InteractiveMode:
         )
         
         # Create processor
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
+        # Create summary parser to preserve existing summaries
+        from ..core.summary_parser import SummaryParser
+        summary_parser = SummaryParser(config.output_file)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), summary_parser)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -420,7 +426,7 @@ class InteractiveMode:
         
         # Write output
         try:
-            processor.write_output()
+            processor.write_output(discovery.files_to_process)
             display_processing_complete(
                 self.console,
                 len(outdated_files),

@@ -79,7 +79,10 @@ class DirectMode:
             files: List of files to process
             config: Processing configuration
         """
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None), None)
+        # Create summary parser to preserve existing summaries
+        from ..core.summary_parser import SummaryParser
+        summary_parser = SummaryParser(config.output_file)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), summary_parser)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -104,7 +107,7 @@ class DirectMode:
         
         # Write output
         try:
-            processor.write_output()
+            processor.write_output(files)
             display_processing_complete(
                 self.console, 
                 len(files), 
