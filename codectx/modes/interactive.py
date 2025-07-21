@@ -44,8 +44,10 @@ class InteractiveMode:
         discovery = discover_files(directory_path)
         
         # Parse existing summaries to update file status
-        summary_parser = SummaryParser()
-        summary_parser.update_file_status(discovery.files_to_process)
+        # Use consistent output filename for SummaryParser throughout interactive session
+        output_filename = getattr(self, 'codectx_config', None).output_filename if hasattr(self, 'codectx_config') and self.codectx_config else "codectx.md"
+        self.summary_parser = SummaryParser(output_filename)
+        self.summary_parser.update_file_status(discovery.files_to_process)
         
         while True:
             # Clear screen and show persistent elements
@@ -112,8 +114,8 @@ class InteractiveMode:
             
             elif choice == "update":
                 # Get outdated files (this should already be calculated by menu, but double-check)
-                outdated_files = summary_parser.get_outdated_files(discovery.files_to_process)
-                updated_files = summary_parser.get_updated_files(discovery.files_to_process)
+                outdated_files = self.summary_parser.get_outdated_files(discovery.files_to_process)
+                updated_files = self.summary_parser.get_updated_files(discovery.files_to_process)
                 
                 if not outdated_files:
                     self.console.print("\n[green]✅ All files are up to date! No processing needed.[/green]")
@@ -139,7 +141,7 @@ class InteractiveMode:
                     self._run_update_with_live_updates(outdated_files, discovery, update_config)
                     
                     # Refresh file status after update
-                    summary_parser.update_file_status(discovery.files_to_process)
+                    self.summary_parser.update_file_status(discovery.files_to_process)
                     
                     # Ask if user wants to continue
                     self.console.print("\n")
@@ -292,10 +294,8 @@ class InteractiveMode:
         )
         
         # Create processor
-        # Create summary parser to preserve existing summaries
-        from ..core.summary_parser import SummaryParser
-        summary_parser = SummaryParser(config.output_file)
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None), summary_parser)
+        # Reuse the existing summary parser from the interactive session
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), self.summary_parser)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -401,10 +401,8 @@ class InteractiveMode:
         )
         
         # Create processor
-        # Create summary parser to preserve existing summaries
-        from ..core.summary_parser import SummaryParser
-        summary_parser = SummaryParser(config.output_file)
-        processor = FileProcessor(config, getattr(self, 'codectx_config', None), summary_parser)
+        # Reuse the existing summary parser from the interactive session
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None), self.summary_parser)
         
         # Initialize progress bar
         progress = Progress(console=self.console)
