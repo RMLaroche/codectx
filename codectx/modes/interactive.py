@@ -287,11 +287,12 @@ class InteractiveMode:
         # Create configuration
         config = ProcessingConfig(
             mode=mode,
-            directory_path=discovery.directory
+            directory_path=discovery.directory,
+            output_file=getattr(self, 'codectx_config', None).output_filename if hasattr(self, 'codectx_config') and self.codectx_config else "codectx.md"
         )
         
         # Create processor
-        processor = FileProcessor(config)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -392,11 +393,12 @@ class InteractiveMode:
         # Create configuration
         config = ProcessingConfig(
             mode=mode,
-            directory_path=discovery.directory
+            directory_path=discovery.directory,
+            output_file=getattr(self, 'codectx_config', None).output_filename if hasattr(self, 'codectx_config') and self.codectx_config else "codectx.md"
         )
         
         # Create processor
-        processor = FileProcessor(config)
+        processor = FileProcessor(config, getattr(self, 'codectx_config', None))
         
         # Initialize progress bar
         progress = Progress(console=self.console)
@@ -428,12 +430,20 @@ class InteractiveMode:
             display_error(self.console, f"Error writing output: {e}")
 
 
-def run_interactive_mode(directory_path: str = ".") -> None:
+def run_interactive_mode(directory_path: str = ".", codectx_config=None) -> None:
     """
     Run interactive mode.
     
     Args:
         directory_path: Directory to operate in
+        codectx_config: Optional CodectxConfig object with advanced settings
     """
+    from ..utils.configuration import get_config
+    
+    # Use provided config or load default
+    if codectx_config is None:
+        codectx_config = get_config()
+        
     interactive_mode = InteractiveMode()
+    interactive_mode.codectx_config = codectx_config  # Pass the config to the mode
     interactive_mode.run(directory_path)

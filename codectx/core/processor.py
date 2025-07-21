@@ -4,14 +4,16 @@ Core file processing logic (mode-agnostic)
 from typing import List, Callable, Optional
 from ..utils.api_client import summarize_file
 from ..utils.file_writer import write_summaries_to_file, format_file_summary
+from ..utils.configuration import CodectxConfig, get_config
 from .models import FileInfo, ProcessingResult, ProcessingConfig, ProcessingStatus
 
 
 class FileProcessor:
     """Core file processor that can work with different UI modes"""
     
-    def __init__(self, config: ProcessingConfig):
+    def __init__(self, config: ProcessingConfig, codectx_config: Optional[CodectxConfig] = None):
         self.config = config
+        self.codectx_config = codectx_config or get_config()
         self.summaries: List[str] = []
         
     def process_file(self, file_info: FileInfo) -> ProcessingResult:
@@ -28,11 +30,12 @@ class FileProcessor:
             # Update file status
             file_info.status = ProcessingStatus.PROCESSING
             
-            # Process the file
+            # Process the file with configuration
             summary = summarize_file(
                 file_info.path, 
                 self.config.mock_mode, 
-                self.config.copy_mode
+                self.config.copy_mode,
+                self.codectx_config
             )
             
             # Determine final status

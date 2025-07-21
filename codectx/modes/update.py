@@ -24,6 +24,7 @@ def run_update_mode(
     directory_path: str = ".", 
     mock_mode: bool = False, 
     copy_mode: bool = False,
+    codectx_config=None,
     console: Console = None
 ) -> None:
     """
@@ -35,7 +36,13 @@ def run_update_mode(
         copy_mode: Whether to run in copy mode
         console: Rich Console object
     """
+    from ..utils.configuration import get_config
+    
     console = console or Console()
+    
+    # Use provided config or load default
+    if codectx_config is None:
+        codectx_config = get_config()
     
     # Display banner
     display_welcome_banner(console, interactive=False)
@@ -102,11 +109,12 @@ def run_update_mode(
     # Create configuration
     config = ProcessingConfig(
         mode=mode,
-        directory_path=directory_path
+        directory_path=directory_path,
+        output_file=codectx_config.output_filename
     )
     
     # Process only the outdated files
-    processor = FileProcessor(config)
+    processor = FileProcessor(config, codectx_config)
     
     try:
         display_info(console, f"🚀 Processing {len(outdated_files)} outdated files...")

@@ -8,17 +8,27 @@
 
 ## ✨ Features
 
+### Core Functionality
 - 🔄 **Smart Update Mode**: Only processes files that have changed since last summary (default behavior)
 - 🤖 **AI-Powered Summarization**: Intelligent analysis of code files with structured output
 - 📊 **Enhanced Tables**: Color-coded status indicators with emoji headers and real-time updates
 - 🎯 **Dynamic Interactive Menu**: Shows file counts, greys out options when not needed
 - 📅 **Timestamp Tracking**: Tracks when each file was last summarized with visual indicators
+
+### Advanced Configuration System
+- ⚙️ **Multiple Config Sources**: Global YAML file, environment variables, CLI arguments
+- 🔄 **API Retry Logic**: Configurable retry attempts (default: 3) with exponential backoff
+- 🤖 **Flexible LLM Support**: Extensible for multiple AI providers (Mistral, future: Claude, OpenAI, local models)
+- 📝 **Custom System Prompts**: Personalize AI summarization behavior
+- 📊 **Configurable Thresholds**: Adjust token limits, file sizes, and processing behavior
+- 🎛️ **Rich CLI Options**: Override any setting via command-line arguments
+
+### File Processing
 - 📁 **Smart File Processing**: Automatically handles different file types and encodings
 - 🎯 **Ignore Patterns**: Configurable `.codectxignore` file with sensible defaults
 - 📊 **Real-time Progress**: Beautiful console interface with live progress tracking
 - 🔧 **Multiple Modes**: Update (default), scan all, mock (testing), and copy (raw content) modes
 - 📝 **Structured Output**: Organized markdown summaries with timestamps and file metadata
-- 🚀 **Easy Installation**: Install from source (PyPI coming soon)
 
 ## 🚀 Quick Start
 
@@ -61,22 +71,54 @@ codectx --copy-mode
 ## 📋 Prerequisites
 
 - Python 3.8 or higher
-- An AI API key (set as environment variable)
+- An AI API key (see configuration section)
+- PyYAML (automatically installed)
 
-## 🔧 Configuration
+## ⚙️ Configuration
 
-### API Setup
+**Simple global config**: One file (`~/.config/codectx/config.yml`) for all projects.
 
-codectx requires an AI API for summarization. Set your API key as an environment variable:
+**Priority**: CLI arguments > Environment variables > Config file > Defaults
+
+### Quick Setup
+
+```bash
+codectx --init-config    # Create config file  
+codectx --edit-config    # Edit your settings
+codectx --show-config    # View current settings
+```
+
+### Configuration File
+
+Located at `~/.config/codectx/config.yml` (auto-created on first run):
+
+```yaml
+# API Configuration (REQUIRED)
+api_key: "your-api-key-here"
+api_url: "https://codestral.mistral.ai/v1/chat/completions" 
+api_retry_attempts: 3
+api_timeout: 30.0
+
+# Processing Preferences  
+token_threshold: 200      # Files above this get AI-summarized
+max_file_size_mb: 10.0   # Skip files larger than this
+concurrent_requests: 5    # Parallel API requests
+log_level: "INFO"
+```
+
+### Environment Variables
 
 ```bash
 export CODECTX_API_KEY="your-api-key-here"
+export CODECTX_TOKEN_THRESHOLD=150
+export CODECTX_API_RETRY_ATTEMPTS=5
 ```
 
-Optionally, configure a custom API endpoint:
+### CLI Overrides
 
 ```bash
-export CODECTX_API_URL="https://your-api-endpoint.com"
+codectx --token-threshold 50 --retry-attempts 5 /path/to/project
+codectx --output-file "project-summary.md" .
 ```
 
 ### Ignore Patterns
@@ -107,68 +149,34 @@ codectx includes sensible defaults for common files (`.git/`, `node_modules/`, `
 
 ## 📖 Usage Examples
 
-### Smart Update Mode (Default)
 ```bash
-# Only updates files that have changed - much faster!
-codectx /path/to/project         
+# Interactive mode (auto-creates config on first run)
+codectx
 
-# First run: processes all files
-# Subsequent runs: only processes modified files
-```
-
-### Interactive Mode
-```bash
-cd my-project
-codectx  # Explore files with enhanced UI and dynamic menus
-```
-
-**Interactive features:**
-- 📊 **Enhanced Tables**: Color-coded dates, emoji headers, status indicators
-- 🎯 **Dynamic Menu**: Shows file counts, greys out "Update" when all files are current
-- 📅 **Visual Status**: Red dates for outdated files, green for up-to-date
-- ⚡ **Smart Defaults**: Automatically focuses on the most relevant action
-
-### Processing Modes
-```bash
-# Update mode (default - fastest)
+# Update changed files only (default, fastest)  
 codectx /path/to/project
 
-# Scan all files (when you need to reprocess everything)  
-codectx --scan-all /path/to/project
+# Process all files
+codectx --scan-all /path/to/project  
 
-# Testing and development
-codectx --mock-mode .           # Test without API calls
-codectx --copy-mode .           # Raw content only (no AI)
+# Test without API calls
+codectx --mock-mode .
 
-# Force interactive mode
-codectx --interactive /path/to/project
+# Configuration management
+codectx --edit-config           # Edit global settings
+codectx --show-config           # View current settings
+
+# One-time overrides
+codectx --token-threshold 50 --output-file "summary.md" .
 ```
-
-### Custom Output Location
-The tool automatically creates `codectx.md` in the current directory with all summaries.
 
 ## 🔍 How It Works
 
-### Smart Update Mode (Default)
-1. **File Discovery**: Scans directory and identifies all processable files
-2. **Timestamp Analysis**: Checks existing `codectx.md` for file summary timestamps
-3. **Smart Filtering**: Only processes files modified since their last summary
-4. **Efficient Processing**: Dramatically faster on subsequent runs
-5. **Output**: Updates `codectx.md` with new timestamps and summaries
-
-### Interactive Mode  
-1. **Enhanced Discovery**: Shows color-coded table with file status indicators
-2. **Dynamic Menu**: Displays file counts and smart options based on current state
-3. **Visual Feedback**: Red dates for outdated files, green for up-to-date
-4. **User Selection**: Choose between update, scan all, mock, or copy modes
-5. **Live Processing**: Real-time table updates showing progress
-6. **Smart Completion**: Returns to menu with refreshed status
-
-### File Processing Logic
-- **Files < 200 estimated tokens**: Copied as raw content (small files)
-- **Files ≥ 200 estimated tokens**: Sent to AI for intelligent summarization
-- **Modified files**: Marked with red timestamps until re-summarized
-- **Current files**: Shown with green timestamps and "Up to date" status
+1. **File Discovery**: Scans directory, respecting ignore patterns
+2. **Smart Update**: Only processes files changed since last summary (timestamps)
+3. **Token Analysis**: Files < 200 tokens → raw content, ≥200 tokens → AI summary
+4. **API Retry**: Automatic retry with exponential backoff on failures
+5. **Output**: Generates `codectx.md` with structured summaries and timestamps
 
 ## 📊 Output Format
 
@@ -206,45 +214,35 @@ Summarized on 2024-01-15 14:29:45
 - **Smart updates**: Only files modified after their summary date are reprocessed
 - **Visual indicators**: UI shows file status with color-coded timestamps
 
-## ⚡ Performance Benefits
+## ⚡ Performance & Reliability
 
-**Smart Update Mode dramatically improves performance:**
+- **Smart Updates**: Only processes changed files (often 90%+ faster on subsequent runs)
+- **API Retry Logic**: Automatic retry with exponential backoff on failures  
+- **Concurrent Processing**: Configurable parallel requests for speed
+- **File Size Protection**: Skip oversized files automatically
 
-- **First run**: Processes all files (same as before)
-- **Subsequent runs**: Only processes changed files (often 90%+ faster)
-- **Large projects**: Massive time savings on iterative development
-- **Visual feedback**: Instantly see which files need attention
-
-**Example**: A 100-file project might have only 2-3 changed files, processing in seconds instead of minutes.
+**Example**: 100-file project with 2-3 changes processes in seconds, not minutes.
 
 ## 🛠️ Development
 
-### Local Installation
-
 ```bash
+# Install from source
 git clone https://github.com/RMLaroche/codectx.git
 cd codectx
 pip install -e .
-```
 
-### Running Tests
-
-```bash
-# Mock mode for testing
-codectx --mock-mode
-
-# Test on sample directory
-mkdir test_dir
-echo "print('hello')" > test_dir/test.py
-codectx test_dir --mock-mode
+# Test
+codectx --init-config          # Setup config  
+codectx --mock-mode .          # Test without API calls
 ```
 
 ## 🔒 Privacy & Security
 
-- codectx sends file contents to the configured AI API for summarization
-- No data is stored permanently by codectx itself
+- File contents sent to your configured AI API for summarization
+- No data stored permanently by codectx
+- Use `.codectxignore` and file size limits to exclude sensitive files  
 - Use `--mock-mode` for testing without API calls
-- Review `.codectxignore` patterns to exclude sensitive files
+- All settings stored locally, no telemetry
 
 ## 🤝 Contributing
 
