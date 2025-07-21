@@ -74,26 +74,27 @@ codectx --copy-mode
 - An AI API key (see configuration section)
 - PyYAML (automatically installed)
 
-## ⚙️ Advanced Configuration
+## ⚙️ Simple Global Configuration
 
-codectx now supports multiple configuration methods with the following priority:
-1. **CLI arguments** (highest priority)
-2. **Configuration files** (.codectx.yml, .codectx.json, .codectx.toml)
+codectx uses a **global user configuration** that applies to all your projects. Configuration priority:
+1. **CLI arguments** (highest priority - for one-time overrides)
+2. **Global config file** (`~/.config/codectx/config.yml`)  
 3. **Environment variables** (backward compatibility)
 4. **Default values** (fallback)
 
-### Quick Configuration Setup
+### Quick Setup
 
-Generate a sample configuration file:
+codectx automatically creates your global config file on first run. You can also:
+
 ```bash
-# Generate YAML config file
-codectx --generate-config yaml
+# Create/initialize global config file
+codectx --init-config
 
-# Generate JSON config file  
-codectx --generate-config json
+# Edit your global configuration  
+codectx --edit-config
 
-# Generate TOML config file
-codectx --generate-config toml
+# View current configuration
+codectx --show-config
 ```
 
 ### CLI Configuration Options
@@ -113,8 +114,9 @@ codectx --concurrent-requests 10 --output-file "my-summary.md"
 codectx --llm-provider mistral --llm-model "codestral-latest"
 codectx --log-level DEBUG
 
-# Use custom config file
-codectx --config .my-config.yml /path/to/project
+# Configuration management
+codectx --edit-config     # Open global config in your editor
+codectx --show-config     # Display current settings
 ```
 
 ### Environment Variables (Legacy Support)
@@ -128,39 +130,44 @@ export CODECTX_TOKEN_THRESHOLD=150
 export CODECTX_LLM_MODEL="codestral-latest"
 ```
 
-### Configuration File Example
+### Global Configuration File
 
-Create a `.codectx.yml` file in your project root:
+Your global config file is located at `~/.config/codectx/config.yml` (or `~/.codectx.yml`):
 
 ```yaml
-# API Configuration
-api_key: "your-api-key-here"
-api_url: "https://your-api-endpoint.com"
-api_retry_attempts: 5
-api_timeout: 45.0
+# codectx - Global Configuration File
+# This file stores your personal preferences for codectx
 
-# LLM Configuration
+# API Configuration (most important settings)
+api_key: "your-api-key-here"  # REQUIRED for AI summarization
+api_url: "https://codestral.mistral.ai/v1/chat/completions"
+api_retry_attempts: 3
+api_timeout: 30.0
+
+# LLM Configuration  
 llm_provider: "mistral"
 llm_model: "codestral-latest"
-# custom_system_prompt: |
-#   Your custom AI prompt here...
 
-# Processing Configuration
-token_threshold: 150
-max_file_size_mb: 20.0
-concurrent_requests: 10
-default_mode: "update"
+# Processing Preferences
+token_threshold: 200  # Files above this get AI-summarized
+max_file_size_mb: 10.0  # Skip files larger than this
+concurrent_requests: 5  # Parallel API requests
 
-# Output Configuration  
-output_filename: "my-codectx-summary.md"
+# Output Preferences
+output_filename: "codectx.md"  # Default output filename
 log_level: "INFO"
 show_progress: true
 
-# Advanced Options
+# Global ignore patterns (in addition to project .codectxignore files)
 ignore_patterns:
-  - "*.tmp"
-  - "logs/*"
-  - "custom-ignore/*"
+  - "__pycache__/*"
+  - "*.pyc"
+  - ".git/*"
+  - "node_modules/*"
+
+# Uncomment to use custom AI prompt:
+# custom_system_prompt: |
+#   Your custom prompt here...
 ```
 
 ### Ignore Patterns
@@ -224,37 +231,40 @@ codectx --scan-all /path/to/project
 codectx --mock-mode .           # Test without API calls
 codectx --copy-mode .           # Raw content only (no AI)
 
-# Advanced configuration examples
+# Advanced configuration examples (one-time overrides)
 codectx --token-threshold 50 --retry-attempts 3 /path/to/project
-codectx --config .my-config.yml --output-file custom-summary.md .
-codectx --llm-model "different-model" --api-timeout 60.0 .
+codectx --output-file project-summary.md --llm-model "different-model" .
+codectx --api-timeout 60.0 --log-level DEBUG .
 
 # Force interactive mode
 codectx --interactive /path/to/project
 ```
 
-### New Configuration Examples
+### Configuration Management Examples
 
 ```bash
-# Generate and customize config
-codectx --generate-config yaml
-# Edit .codectx.yaml file with your preferences
-codectx .  # Uses your custom configuration
+# First time setup
+codectx --init-config                    # Create global config file
+codectx --edit-config                    # Open config in your editor
+# (Edit your API key and preferences)
+codectx .                               # Run with your global settings
 
-# Override specific settings for one run
+# Check current configuration
+codectx --show-config                   # Display all current settings
+
+# One-time overrides (don't change your global config)
 codectx --token-threshold 25 --concurrent-requests 8 /my/project
-
-# Use different API settings temporarily  
 codectx --api-key "temp-key" --retry-attempts 1 --mock-mode .
+codectx --output-file "special-analysis.md" /important/project
 ```
 
 ## 🔍 How It Works
 
-### Configuration Loading (New!)
-1. **Priority System**: CLI args → config files → env vars → defaults
-2. **Auto-Discovery**: Searches for `.codectx.yml`, `.codectx.json`, `.codectx.toml` 
-3. **Validation**: Ensures all settings are valid before processing
-4. **Override Flexibility**: Mix and match configuration sources as needed
+### Simple Configuration System (New!)
+1. **Global Config**: One config file in `~/.config/codectx/config.yml` for all projects
+2. **Auto-Creation**: Automatically created on first run with sensible defaults
+3. **Priority System**: CLI args → global config → env vars → defaults
+4. **Easy Management**: `--edit-config` to modify, `--show-config` to view
 
 ### Smart Update Mode (Default)
 1. **File Discovery**: Scans directory and identifies all processable files
@@ -361,10 +371,10 @@ codectx test_dir --mock-mode
 ### Configuration Testing
 
 ```bash
-# Test different config sources
-codectx --generate-config yaml
-# Edit .codectx.yaml as needed
-codectx --mock-mode .
+# Setup and test global configuration
+codectx --init-config           # Create config if needed
+codectx --show-config          # Verify your settings
+codectx --mock-mode .          # Test with your global config
 
 # Test CLI overrides
 codectx --token-threshold 1 --retry-attempts 1 --mock-mode test_dir
