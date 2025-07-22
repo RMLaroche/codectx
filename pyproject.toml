@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codectx"
-version = "1.0.0"
+version = "2.0.0"
 description = "AI-powered code context and file summarization tool"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -31,7 +31,7 @@ classifiers = [
 dependencies = [
     "requests>=2.25.1",
     "rich>=13.0.0",
-    "InquirerPy>=0.3.4",
+    "PyYAML>=6.0.0",
 ]
 
 [project.optional-dependencies]
