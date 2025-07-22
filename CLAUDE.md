@@ -44,10 +44,28 @@ python -m build
 pip install dist/codectx-*.whl
 ```
 
+### Testing
+```bash
+# Run all tests (26 tests total)
+pytest tests/
+
+# Run specific test categories
+pytest tests/unit/          # Unit tests (18 tests)
+pytest tests/integration/   # Integration tests (2 tests)
+
+# Run tests with coverage report
+make test-coverage
+
+# Run tests using Makefile shortcuts
+make test                   # All tests
+make test-unit             # Unit tests only
+```
+
 ### Configuration
 Configuration is done via environment variables:
 - Set `CODECTX_API_KEY` environment variable with your AI API key
 - Optionally set `CODECTX_API_URL` for custom API endpoints
+- Optionally set `CODECTX_MODEL` for custom model selection
 - The tool uses the "codestral-latest" model by default
 
 ## Architecture and Key Components
@@ -110,6 +128,7 @@ All summaries are written to `codectx.md` with structured markdown including:
 - **requests**: HTTP client for AI API calls
 - **rich**: Console formatting and progress display
 - **PyYAML**: YAML configuration file parsing
+- **pytest**: Testing framework (development dependency)
 
 ## Development Notes
 
@@ -127,8 +146,10 @@ All summaries are written to `codectx.md` with structured markdown including:
 - Rich console interface with real-time progress
 
 ### Testing and Development
-- Mock mode for testing without API calls
-- Copy mode for processing without summarization
+- **Comprehensive test suite**: 26 tests covering unit, integration, and smoke testing
+- **pytest framework**: Configured with proper markers and CI/CD integration
+- **Mock mode** for testing without API calls
+- **Copy mode** for processing without summarization
 - Extensive default ignore patterns for common dev environments
 - Professional CLI with help text and examples
 
@@ -138,6 +159,75 @@ All summaries are written to `codectx.md` with structured markdown including:
 - Enhanced file processing with binary detection
 - Structured output with metadata headers
 - Better error messages and user feedback
+
+## Testing Infrastructure
+
+### Test Suite Overview
+The project includes a comprehensive test suite with **26 tests** providing excellent coverage:
+
+- **Unit Tests (18 tests)**: Cover individual modules and functions
+  - `test_discovery.py`: File discovery, ignore patterns, checksum calculation
+  - `test_smoke.py`: Basic import validation and functionality checks
+- **Integration Tests (2 tests)**: End-to-end functionality testing
+  - `test_basic.py`: CLI testing with mock mode and status mode
+
+### Test Structure
+```
+tests/
+├── conftest.py              # Shared fixtures for all tests
+├── unit/
+│   ├── test_discovery.py    # 18 tests for discovery module
+│   └── test_smoke.py        # 6 basic functionality tests
+└── integration/
+    └── test_basic.py        # 2 end-to-end tests
+```
+
+### Running Tests
+```bash
+# All tests (recommended)
+pytest tests/ -v
+
+# By category
+pytest tests/unit/ -v        # Unit tests only
+pytest tests/integration/ -v # Integration tests only
+
+# With coverage
+make test-coverage
+coverage run -m pytest tests/
+coverage report -m
+
+# Specific test
+pytest tests/unit/test_discovery.py::TestFileInfo::test_file_info_creation -v
+```
+
+### Test Features
+- **Fast execution**: All 26 tests run in ~0.6 seconds
+- **No external dependencies**: Uses mock mode to avoid API calls
+- **Isolated testing**: Each test uses temporary directories
+- **Shared fixtures**: Consistent test data via `conftest.py`
+- **CI/CD ready**: GitHub Actions workflow configured
+
+### Test Coverage Areas
+✅ File discovery and directory traversal  
+✅ `.codectxignore` pattern matching and filtering  
+✅ FileInfo class with SHA256 checksum calculation  
+✅ Binary file handling and size formatting  
+✅ Error handling for missing/unreadable files  
+✅ Mock mode end-to-end CLI testing  
+✅ Status mode integration testing  
+✅ Module imports and basic functionality
+
+### Adding New Tests
+1. **Unit tests**: Add to appropriate file in `tests/unit/`
+2. **Integration tests**: Add to `tests/integration/`
+3. **Fixtures**: Add shared test data to `tests/conftest.py`
+4. **Run tests**: `pytest tests/ -v` to verify
+
+### Test Configuration Files
+- `pytest.ini`: Pytest configuration and markers
+- `.github/workflows/tests.yml`: CI/CD pipeline
+- `Makefile`: Convenient test commands
+- `tests/README.md`: Detailed test documentation
 
 ## Git Workflow and Development Guidelines
 
@@ -295,7 +385,10 @@ git commit -m "chore: bump version to 1.1.0"
 
 #### Before Each Commit
 ```bash
-# Test locally
+# Run test suite (preferred method)
+pytest tests/ -v
+
+# Test locally (manual testing)
 codectx --mock-mode
 codectx . --mock-mode
 
@@ -306,6 +399,10 @@ codectx --version
 
 #### Before Each Release
 ```bash
+# Run full test suite
+pytest tests/ -v
+make test-coverage
+
 # Full testing
 python -m build
 pip install dist/codectx-*.whl --force-reinstall
