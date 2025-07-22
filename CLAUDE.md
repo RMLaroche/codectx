@@ -109,7 +109,7 @@ All summaries are written to `codectx.md` with structured markdown including:
 
 - **requests**: HTTP client for AI API calls
 - **rich**: Console formatting and progress display
-- **InquirerPy**: Interactive prompts (imported but not actively used in current codebase)
+- **PyYAML**: YAML configuration file parsing
 
 ## Development Notes
 
@@ -285,7 +285,7 @@ Use **Conventional Commits** format:
 
 #### Examples:
 ```bash
-git commit -m "feat(cli): add interactive mode with enhanced UI"
+git commit -m "feat(cli): enhance update mode performance"
 git commit -m "fix(api): handle timeout errors gracefully"
 git commit -m "docs: update installation instructions"
 git commit -m "chore: bump version to 1.1.0"

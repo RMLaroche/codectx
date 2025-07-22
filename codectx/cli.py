@@ -1,235 +1,332 @@
 """
-New modular CLI for codectx with advanced configuration support
+Main CLI for codectx - all modes, configuration, and command handling
 """
+import os
 import argparse
-from typing import Dict, Any
+from pathlib import Path
+from typing import Optional
+
 from . import __version__
-from .modes import run_direct_mode, run_interactive_mode, run_update_mode
-from .utils.configuration import ConfigurationLoader
+from .discovery import discover_files
+from .processing import FileProcessor, ProcessingConfig, ProcessingMode
+from .ui import (
+    display_welcome, display_info, display_success, display_warning, display_error,
+    display_file_stats, display_file_table, display_processing_progress, 
+    display_completion_stats, display_status_summary, create_live_processing_context
+)
 
 
 def main() -> None:
-    """Main entry point for the CLI."""
+    """Main CLI entry point"""
+    try:
+        args = _parse_arguments()
+        config = _create_config(args)
+        
+        if args.status:
+            _run_status_mode(args.directory_path, config)
+        elif args.scan_all:
+            _run_scan_all_mode(args.directory_path, config)
+        else:
+            _run_update_mode(args.directory_path, config)
+            
+    except KeyboardInterrupt:
+        display_warning("Operation interrupted by user")
+    except Exception as e:
+        display_error(str(e))
+        exit(1)
+
+
+def _parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments"""
     parser = argparse.ArgumentParser(
         description="codectx - AI-powered code context and file summarization tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  codectx                    # Enter interactive mode (auto-creates config on first run)
-  codectx /path/to/project   # Update changed files only (default)
-  codectx --edit-config      # Open global configuration in editor
-  codectx --show-config      # Display current configuration
+  codectx                    # Update changed files in current directory (default)
+  codectx /path/to/project   # Update changed files in specified directory  
+  codectx --status .         # Show file status summary without processing
   codectx --scan-all .       # Process all files (override update mode)
   codectx --mock-mode .      # Test without API calls
-  codectx --token-threshold 50 .  # Override token threshold for this run
+  codectx --copy-mode .      # Copy content without AI summarization
         """
     )
     
+    # Positional arguments
     parser.add_argument(
-        'directory_path', 
-        nargs='?', 
-        default=None, 
-        help='The directory to process (default: interactive mode if no path specified)'
+        'directory_path',
+        nargs='?',
+        default='.',
+        help='The directory to process (default: current directory)'
     )
-    parser.add_argument(
-        '--mock-mode', 
-        action='store_true', 
-        help='Enable mock mode for testing without API calls'
-    )
-    parser.add_argument(
-        '--copy-mode', 
-        action='store_true', 
-        help='Copy file content without AI summarization'
-    )
-    parser.add_argument(
-        '--interactive', '-i',
-        action='store_true', 
-        help='Force interactive mode even when directory is specified'
-    )
+    
+    # Mode arguments
     parser.add_argument(
         '--scan-all',
         action='store_true',
         help='Process all files instead of just changed files'
     )
     parser.add_argument(
-        '--version', 
-        action='version', 
-        version=f'codectx {__version__}'
+        '--status',
+        action='store_true', 
+        help='Show file status summary table without processing'
+    )
+    parser.add_argument(
+        '--mock-mode',
+        action='store_true',
+        help='Enable mock mode for testing without API calls'
+    )
+    parser.add_argument(
+        '--copy-mode',
+        action='store_true',
+        help='Copy file content without AI summarization'
     )
     
     # Configuration arguments
-    parser.add_argument(
-        '--edit-config',
-        action='store_true',
-        help='Open global configuration file in default editor'
-    )
-    parser.add_argument(
-        '--show-config',
-        action='store_true', 
-        help='Show current configuration and exit'
-    )
     parser.add_argument(
         '--api-key',
         help='API key (overrides CODECTX_API_KEY env var)'
     )
     parser.add_argument(
-        '--api-url', 
-        help='API URL (overrides CODECTX_API_URL env var)'
+        '--api-url',
+        help='API URL (default: Mistral Codestral API)'
     )
     parser.add_argument(
-        '--retry-attempts',
-        type=int,
-        help='Number of API retry attempts (default: 3)'
-    )
-    parser.add_argument(
-        '--api-timeout',
-        type=float,
-        help='API timeout in seconds (default: 30.0)'
+        '--model',
+        help='AI model to use (default: codestral-latest)'
     )
     parser.add_argument(
         '--token-threshold',
         type=int,
-        help='Token threshold for summarization (default: 200)'
+        default=200,
+        help='Token threshold for AI summarization (default: 200)'
     )
     parser.add_argument(
-        '--llm-provider',
-        help='LLM provider (default: mistral)'
+        '--timeout',
+        type=float,
+        default=30.0,
+        help='API timeout in seconds (default: 30.0)'
     )
     parser.add_argument(
-        '--llm-model',
-        help='LLM model to use (default: codestral-latest)'
-    )
-    parser.add_argument(
-        '--output-file',
-        help='Output filename (default: codectx.md)'
-    )
-    parser.add_argument(
-        '--log-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        help='Logging level (default: INFO)'
-    )
-    parser.add_argument(
-        '--concurrent-requests',
+        '--retry-attempts', 
         type=int,
-        help='Number of concurrent API requests (default: 5)'
+        default=3,
+        help='Number of API retry attempts (default: 3)'
     )
     parser.add_argument(
         '--max-file-size',
         type=float,
+        default=10.0,
         help='Maximum file size in MB to process (default: 10.0)'
     )
     parser.add_argument(
-        '--init-config',
-        action='store_true',
-        help='Initialize global configuration file with defaults (if not exists)'
+        '--output-file',
+        default='codectx.md',
+        help='Output filename (default: codectx.md)'
+    )
+    
+    # Info arguments
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'codectx {__version__}'
+    )
+    
+    return parser.parse_args()
+
+
+def _create_config(args: argparse.Namespace) -> ProcessingConfig:
+    """Create processing configuration from arguments"""
+    # Determine processing mode
+    if args.mock_mode:
+        mode = ProcessingMode.MOCK
+    elif args.copy_mode:
+        mode = ProcessingMode.COPY
+    else:
+        mode = ProcessingMode.AI_SUMMARIZATION
+    
+    # Get configuration from args or environment
+    api_key = args.api_key or os.getenv('CODECTX_API_KEY')
+    api_url = args.api_url or os.getenv('CODECTX_API_URL', 'https://codestral.mistral.ai/v1/chat/completions')
+    model = args.model or os.getenv('CODECTX_MODEL', 'codestral-latest')
+    
+    return ProcessingConfig(
+        mode=mode,
+        api_key=api_key,
+        api_url=api_url,
+        model=model,
+        token_threshold=args.token_threshold,
+        timeout=args.timeout,
+        retry_attempts=args.retry_attempts,
+        max_file_size_mb=args.max_file_size,
+        output_file=args.output_file
     )
 
-    args = parser.parse_args()
+
+def _run_status_mode(directory: str, config: ProcessingConfig) -> None:
+    """Run status mode - show file status without processing"""
+    display_welcome()
+    display_info("🔍 Analyzing project files...")
     
-    # Handle configuration management options
-    if args.edit_config:
-        try:
-            ConfigurationLoader.edit_config()
-            return
-        except Exception as e:
-            print(f"Error opening configuration file: {e}")
-            return
-    
-    if args.show_config:
-        try:
-            # Build CLI overrides for show-config too
-            cli_overrides = _build_cli_overrides(args)
-            config = ConfigurationLoader.load_config(cli_overrides)
-            config_path = ConfigurationLoader.get_config_path_for_display()
-            print(f"Configuration loaded from: {config_path}")
-            print("Priority: CLI args > Environment variables > Config file > Defaults")
-            print("\nCurrent configuration:")
-            print(f"  API Key: {'***set***' if config.api_key else 'not set'}")
-            print(f"  API URL: {config.api_url}")
-            print(f"  Retry attempts: {config.api_retry_attempts}")
-            print(f"  Token threshold: {config.token_threshold}")
-            print(f"  LLM provider: {config.llm_provider}")
-            print(f"  LLM model: {config.llm_model}")
-            print(f"  Output filename: {config.output_filename}")
-            print(f"  Log level: {config.log_level}")
-            return
-        except Exception as e:
-            print(f"Error loading configuration: {e}")
-            return
-    
-    if args.init_config:
-        try:
-            config_path = ConfigurationLoader.get_global_config_path()
-            if config_path.exists():
-                print(f"Configuration file already exists: {config_path}")
-                print("Use --edit-config to modify it.")
-            else:
-                ConfigurationLoader._create_default_config(config_path)
-            return
-        except Exception as e:
-            print(f"Error creating configuration file: {e}")
-            return
-    
-    # Build CLI overrides dictionary
-    cli_overrides = _build_cli_overrides(args)
-    
-    # Load configuration with CLI overrides
-    try:
-        config = ConfigurationLoader.load_config(cli_overrides)
-    except Exception as e:
-        print(f"Error loading configuration: {e}")
+    # Discover files
+    discovery = discover_files(directory)
+    if not discovery.files_to_process:
+        display_info("❌ No files found to analyze!")
         return
     
-    # Determine which mode to use
-    use_interactive = args.interactive or (
-        args.directory_path is None and 
-        not args.mock_mode and 
-        not args.copy_mode and
-        not args.scan_all
-    )
+    # Get file status
+    processor = FileProcessor(config)
+    file_status = processor.get_file_status(discovery.files_to_process)
     
-    if use_interactive:
-        # Interactive mode
-        directory = args.directory_path or "."
-        run_interactive_mode(directory, config)
-    elif args.scan_all:
-        # Direct mode (scan all files)
-        directory = args.directory_path or "."
-        run_direct_mode(directory, args.mock_mode, args.copy_mode, config)
+    # Display status summary
+    display_status_summary(discovery, file_status)
+
+
+def _run_update_mode(directory: str, config: ProcessingConfig) -> None:
+    """Run update mode - process only changed files"""
+    # Check API key requirement for AI mode
+    if config.mode == ProcessingMode.AI_SUMMARIZATION and not config.api_key:
+        raise ValueError(
+            "API key required for AI summarization. "
+            "Set CODECTX_API_KEY environment variable or use --api-key argument. "
+            "Use --mock-mode for testing without API calls."
+        )
+    
+    display_welcome()
+    display_info("🔄 Update Mode: Processing only changed files")
+    display_info("Discovering files...")
+    
+    # Discover files
+    discovery = discover_files(directory)
+    if not discovery.files_to_process:
+        display_info("❌ No files found to process!")
+        return
+    
+    # Get file status and filter to outdated files
+    processor = FileProcessor(config)
+    file_status = processor.get_file_status(discovery.files_to_process)
+    
+    outdated_files = [
+        f for f in discovery.files_to_process
+        if file_status[f.relative_path] in ["outdated", "new"]
+    ]
+    
+    display_info("Checking for existing summaries...")
+    display_file_stats(discovery, file_status)
+    
+    if not outdated_files:
+        display_info("✅ All files are up to date!")
+        return
+    
+    # Show files to be processed
+    if len(outdated_files) <= 10:
+        display_file_table(outdated_files, file_status, f"📂 Files to Update ({len(outdated_files)} files)")
     else:
-        # Update mode (default - only changed files)
-        directory = args.directory_path or "."
-        run_update_mode(directory, args.mock_mode, args.copy_mode, config)
+        display_info(f"📋 Updating {len(outdated_files)} files...")
+    
+    # Show processing mode
+    mode_messages = {
+        ProcessingMode.MOCK: "🤖 Running in mock mode (no API calls)",
+        ProcessingMode.COPY: "📄 Running in copy mode (raw content only)",
+        ProcessingMode.AI_SUMMARIZATION: "🤖 Running AI summarization"
+    }
+    display_info(mode_messages[config.mode])
+    
+    # Process files with live table display
+    display_info(f"🚀 Updating {len(outdated_files)} files...")
+    
+    summaries = []
+    with create_live_processing_context(outdated_files, discovery.directory) as live_ctx:
+        for file_info in outdated_files:
+            # Update file status to processing
+            live_ctx.update_file_status(file_info, 'processing')
+            
+            # Process the file
+            summary = processor._process_single_file(file_info)
+            if summary:
+                summaries.append(summary)
+                live_ctx.update_file_status(file_info, 'completed')
+            else:
+                live_ctx.update_file_status(file_info, 'error')
+            
+            # Advance progress
+            live_ctx.advance_progress()
+    
+    # Write output
+    display_info("📝 Writing output...")
+    processor.write_output(summaries)
+    
+    # Show completion stats
+    up_to_date_count = len([f for f in discovery.files_to_process if file_status[f.relative_path] == "up-to-date"])
+    display_completion_stats(len(summaries), config.output_file, up_to_date_count)
 
 
-def _build_cli_overrides(args) -> Dict[str, Any]:
-    """Build configuration overrides from CLI arguments."""
-    cli_overrides = {}
+def _run_scan_all_mode(directory: str, config: ProcessingConfig) -> None:
+    """Run scan-all mode - process all files"""
+    # Check API key requirement for AI mode
+    if config.mode == ProcessingMode.AI_SUMMARIZATION and not config.api_key:
+        raise ValueError(
+            "API key required for AI summarization. "
+            "Set CODECTX_API_KEY environment variable or use --api-key argument. "
+            "Use --mock-mode for testing without API calls."
+        )
     
-    if args.api_key:
-        cli_overrides['api_key'] = args.api_key
-    if args.api_url:
-        cli_overrides['api_url'] = args.api_url
-    if args.retry_attempts is not None:
-        cli_overrides['api_retry_attempts'] = args.retry_attempts
-    if args.api_timeout is not None:
-        cli_overrides['api_timeout'] = args.api_timeout
-    if args.token_threshold is not None:
-        cli_overrides['token_threshold'] = args.token_threshold
-    if args.llm_provider:
-        cli_overrides['llm_provider'] = args.llm_provider
-    if args.llm_model:
-        cli_overrides['llm_model'] = args.llm_model
-    if args.output_file:
-        cli_overrides['output_filename'] = args.output_file
-    if args.log_level:
-        cli_overrides['log_level'] = args.log_level
-    if args.concurrent_requests is not None:
-        cli_overrides['concurrent_requests'] = args.concurrent_requests
-    if args.max_file_size is not None:
-        cli_overrides['max_file_size_mb'] = args.max_file_size
+    display_welcome()
+    display_info("🔄 Scan-All Mode: Processing all files")
+    display_info("Discovering files...")
     
-    return cli_overrides
+    # Discover files
+    discovery = discover_files(directory)
+    if not discovery.files_to_process:
+        display_info("❌ No files found to process!")
+        return
+    
+    # Get file status for display
+    processor = FileProcessor(config)
+    file_status = processor.get_file_status(discovery.files_to_process)
+    
+    display_file_stats(discovery, file_status)
+    
+    # Show files to be processed
+    if len(discovery.files_to_process) <= 10:
+        display_file_table(discovery.files_to_process, file_status, f"📂 All Files ({len(discovery.files_to_process)} files)")
+    else:
+        display_info(f"📋 Processing {len(discovery.files_to_process)} files...")
+    
+    # Show processing mode
+    mode_messages = {
+        ProcessingMode.MOCK: "🤖 Running in mock mode (no API calls)",
+        ProcessingMode.COPY: "📄 Running in copy mode (raw content only)",
+        ProcessingMode.AI_SUMMARIZATION: "🤖 Running AI summarization"
+    }
+    display_info(mode_messages[config.mode])
+    
+    # Process all files with live table display
+    display_info(f"🚀 Processing {len(discovery.files_to_process)} files...")
+    
+    summaries = []
+    with create_live_processing_context(discovery.files_to_process, discovery.directory) as live_ctx:
+        for file_info in discovery.files_to_process:
+            # Update file status to processing
+            live_ctx.update_file_status(file_info, 'processing')
+            
+            # Process the file
+            summary = processor._process_single_file(file_info)
+            if summary:
+                summaries.append(summary)
+                live_ctx.update_file_status(file_info, 'completed')
+            else:
+                live_ctx.update_file_status(file_info, 'error')
+            
+            # Advance progress
+            live_ctx.advance_progress()
+    
+    # Write output
+    display_info("📝 Writing output...")
+    processor.write_output(summaries, discovery.files_to_process)
+    
+    # Show completion stats
+    display_completion_stats(len(summaries), config.output_file)
 
 
 if __name__ == "__main__":
