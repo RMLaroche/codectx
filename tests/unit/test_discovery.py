@@ -269,3 +269,23 @@ class TestFileDiscovery:
         
         # Should find all files
         assert len(result.files_to_process) >= 20
+        
+    def test_discover_files_after_deletion(self, temp_dir, sample_files):
+        """Test that discover_files properly reflects file deletions"""
+        # Initial discovery
+        result1 = discover_files(temp_dir)
+        initial_count = len(result1.files_to_process)
+        
+        # Delete a file
+        import os
+        os.remove(sample_files['small.py'])
+        
+        # Discover again
+        result2 = discover_files(temp_dir)
+        
+        # Should have one less file
+        assert len(result2.files_to_process) == initial_count - 1
+        
+        # Deleted file should not be in the results
+        file_names = {os.path.basename(f.path) for f in result2.files_to_process}
+        assert 'small.py' not in file_names

@@ -252,9 +252,9 @@ def _run_update_mode(directory: str, config: ProcessingConfig) -> None:
             # Advance progress
             live_ctx.advance_progress()
     
-    # Write output
+    # Write output (pass current files to remove summaries of deleted files)
     display_info("📝 Writing output...")
-    processor.write_output(summaries)
+    processor.write_output(summaries, discovery.files_to_process)
     
     # Show completion stats
     up_to_date_count = len([f for f in discovery.files_to_process if file_status[f.relative_path] == "up-to-date"])

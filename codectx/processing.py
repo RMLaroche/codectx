@@ -73,16 +73,16 @@ class FileProcessor:
         
         return summaries
     
-    def write_output(self, new_summaries: List[str], all_files: List[FileInfo] = None) -> None:
-        """Write summaries to output file, merging with existing summaries"""
-        if not new_summaries and not all_files:
+    def write_output(self, new_summaries: List[str], current_files: List[FileInfo] = None) -> None:
+        """Write summaries to output file, merging with existing summaries for current files only"""
+        if not new_summaries and not current_files:
             return
         
-        # For scan-all mode (when all_files is provided), write all summaries
-        if all_files:
+        # When current_files is provided, only include summaries for files that still exist
+        if current_files:
             all_summaries = []
-            for file_info in sorted(all_files, key=lambda f: f.relative_path):
-                # In scan-all mode, prioritize newly processed summaries
+            for file_info in sorted(current_files, key=lambda f: f.relative_path):
+                # Check if we have a newly processed summary for this file
                 found_new = False
                 for summary in new_summaries:
                     if f"## {file_info.relative_path}\n" in summary:
@@ -90,14 +90,15 @@ class FileProcessor:
                         found_new = True
                         break
                 
-                # If no new summary was generated (e.g., file couldn't be read), fall back to existing
+                # If no new summary, use existing summary if available
                 if not found_new and file_info.relative_path in self.existing_summaries:
                     existing = self.existing_summaries[file_info.relative_path]
                     all_summaries.append(self._format_summary(file_info.relative_path, existing.content, existing.summary_date, existing.checksum))
             summaries_to_write = all_summaries
-            total_count = len(all_files)
+            total_count = len(current_files)
         else:
-            # For update mode, merge new summaries with existing ones
+            # For update mode without current_files list (legacy), merge new summaries with all existing ones
+            # This preserves the old behavior when current_files is not provided
             all_summaries = {}
             
             # Add existing summaries
