@@ -13,8 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install in development mode
 pip install -e .
 
-# Install dependencies only
-pip install -r requirements.txt
+# Install with development dependencies
+pip install -e .[dev]
 ```
 
 ### Running the Application

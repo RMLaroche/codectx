@@ -5,10 +5,13 @@ AI-powered code summarization tool that generates markdown documentation from yo
 ## Quick Start
 
 ```bash
-# Install from source
+# Install from PyPI (recommended)
+pip install codectx
+
+# Or install from source
 git clone https://github.com/RMLaroche/codectx.git
 cd codectx
-pip install -e .
+pip install .
 
 # Set API key
 export CODECTX_API_KEY="your-mistral-api-key"

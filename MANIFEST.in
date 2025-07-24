@@ -1,7 +1,0 @@
-include README.md
-include LICENSE
-include CLAUDE.md
-include requirements.txt
-include .gitignore
-recursive-exclude * __pycache__
-recursive-exclude * *.py[co]
