@@ -1,5 +1,12 @@
 """
 Core processing for codectx - file processing, AI calls, parsing, and output writing
+
+This module handles the main processing pipeline:
+- File content processing and token estimation
+- AI API calls with retry logic and error handling
+- Mock mode for testing without API dependencies
+- Output file generation and summary management
+- Checksum-based change detection for efficient updates
 """
 import os
 import re
@@ -11,6 +18,11 @@ from datetime import datetime
 from enum import Enum
 
 from .discovery import FileInfo
+from .constants import (
+    DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_TIMEOUT, DEFAULT_RETRY_ATTEMPTS,
+    DEFAULT_TOKEN_THRESHOLD, DEFAULT_MAX_FILE_SIZE_MB, DEFAULT_OUTPUT_FILE,
+    MOCK_PROCESSING_DELAY, CHUNK_SIZE, AI_SYSTEM_PROMPT, MOCK_SUMMARY_TEMPLATE
+)
 
 
 class ProcessingMode(Enum):
@@ -24,13 +36,13 @@ class ProcessingConfig(NamedTuple):
     """Configuration for processing"""
     mode: ProcessingMode
     api_key: Optional[str] = None
-    api_url: str = "https://codestral.mistral.ai/v1/chat/completions"
-    model: str = "codestral-latest"
-    token_threshold: int = 200
-    timeout: float = 30.0
-    retry_attempts: int = 3
-    max_file_size_mb: float = 10.0
-    output_file: str = "codectx.md"
+    api_url: str = DEFAULT_API_URL
+    model: str = DEFAULT_MODEL
+    token_threshold: int = DEFAULT_TOKEN_THRESHOLD
+    timeout: float = DEFAULT_TIMEOUT
+    retry_attempts: int = DEFAULT_RETRY_ATTEMPTS
+    max_file_size_mb: float = DEFAULT_MAX_FILE_SIZE_MB
+    output_file: str = DEFAULT_OUTPUT_FILE
 
 
 class SummaryMetadata(NamedTuple):
@@ -288,22 +300,14 @@ Total files processed: {total_count}
         if not self.config.api_key:
             return "Error: API key not provided"
         
-        prompt = f"""Please analyze this code file and provide a structured summary.
+        user_prompt = f"""Please analyze this code file and provide a structured summary.
 
 File: {file_path}
 
 Content:
 ```
 {content}
-```
-
-Please provide a summary in the following format:
-- **Role**: Brief description of what this file does
-- **Classes**: List main classes (or "None")  
-- **Global Functions**: List main functions (or "None")
-- **Dependencies**: List main imports/dependencies (or "None")
-
-Keep the summary concise and focused on the most important aspects."""
+```"""
 
         headers = {
             'Authorization': f'Bearer {self.config.api_key}',
@@ -313,7 +317,8 @@ Keep the summary concise and focused on the most important aspects."""
         data = {
             'model': self.config.model,
             'messages': [
-                {'role': 'user', 'content': prompt}
+                {'role': 'system', 'content': AI_SYSTEM_PROMPT},
+                {'role': 'user', 'content': user_prompt}
             ],
             'temperature': 0.1,
             'max_tokens': 500
@@ -355,16 +360,13 @@ Keep the summary concise and focused on the most important aspects."""
                 last_error = f"Unexpected error: {e}"
             
             if attempt < self.config.retry_attempts - 1:
-                time.sleep(0.5)  # Brief pause between retries
+                time.sleep(MOCK_PROCESSING_DELAY)  # Brief pause between retries
         
         return f"Error: {last_error}"
     
     def _generate_mock_summary(self) -> str:
         """Generate a mock summary for testing with simulated delay"""
         # Simulate HTTP call time
-        time.sleep(0.5)
-        return """- **Role**: This is a mocked summary of the file.
-- **Classes**: None
-- **Global Functions**: None
-- **Dependencies**: None"""
+        time.sleep(MOCK_PROCESSING_DELAY)
+        return MOCK_SUMMARY_TEMPLATE
     

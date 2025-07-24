@@ -1,5 +1,12 @@
 """
 Main CLI for codectx - all modes, configuration, and command handling
+
+This module provides the main entry point and command-line interface:
+- Argument parsing with comprehensive options and help
+- Configuration management from CLI args and environment variables
+- Three processing modes: update (default), scan-all, and status
+- Error handling and user-friendly messaging
+- Integration with all core modules for complete functionality
 """
 import os
 import argparse
@@ -9,6 +16,7 @@ from typing import Optional
 from . import __version__
 from .discovery import discover_files
 from .processing import FileProcessor, ProcessingConfig, ProcessingMode
+from .constants import DEFAULT_API_URL, DEFAULT_MODEL, DEFAULT_TOKEN_THRESHOLD, DEFAULT_TIMEOUT, DEFAULT_RETRY_ATTEMPTS, DEFAULT_MAX_FILE_SIZE_MB, DEFAULT_OUTPUT_FILE
 from .ui import (
     display_welcome, display_info, display_success, display_warning, display_error,
     display_file_stats, display_file_table, display_processing_progress, 
@@ -98,31 +106,31 @@ Examples:
     parser.add_argument(
         '--token-threshold',
         type=int,
-        default=200,
-        help='Token threshold for AI summarization (default: 200)'
+        default=DEFAULT_TOKEN_THRESHOLD,
+        help=f'Token threshold for AI summarization (default: {DEFAULT_TOKEN_THRESHOLD})'
     )
     parser.add_argument(
         '--timeout',
         type=float,
-        default=30.0,
-        help='API timeout in seconds (default: 30.0)'
+        default=DEFAULT_TIMEOUT,
+        help=f'API timeout in seconds (default: {DEFAULT_TIMEOUT})'
     )
     parser.add_argument(
         '--retry-attempts', 
         type=int,
-        default=3,
-        help='Number of API retry attempts (default: 3)'
+        default=DEFAULT_RETRY_ATTEMPTS,
+        help=f'Number of API retry attempts (default: {DEFAULT_RETRY_ATTEMPTS})'
     )
     parser.add_argument(
         '--max-file-size',
         type=float,
-        default=10.0,
-        help='Maximum file size in MB to process (default: 10.0)'
+        default=DEFAULT_MAX_FILE_SIZE_MB,
+        help=f'Maximum file size in MB to process (default: {DEFAULT_MAX_FILE_SIZE_MB})'
     )
     parser.add_argument(
         '--output-file',
-        default='codectx.md',
-        help='Output filename (default: codectx.md)'
+        default=DEFAULT_OUTPUT_FILE,
+        help=f'Output filename (default: {DEFAULT_OUTPUT_FILE})'
     )
     
     # Info arguments
@@ -147,8 +155,8 @@ def _create_config(args: argparse.Namespace) -> ProcessingConfig:
     
     # Get configuration from args or environment
     api_key = args.api_key or os.getenv('CODECTX_API_KEY')
-    api_url = args.api_url or os.getenv('CODECTX_API_URL', 'https://codestral.mistral.ai/v1/chat/completions')
-    model = args.model or os.getenv('CODECTX_MODEL', 'codestral-latest')
+    api_url = args.api_url or os.getenv('CODECTX_API_URL', DEFAULT_API_URL)
+    model = args.model or os.getenv('CODECTX_MODEL', DEFAULT_MODEL)
     
     return ProcessingConfig(
         mode=mode,

@@ -1,5 +1,12 @@
 """
 User interface components for codectx
+
+This module provides rich console UI components including:
+- Welcome banner and status messages
+- File status tables with color-coded information
+- Live processing displays with real-time updates
+- Progress tracking and completion statistics
+- Consistent styling and formatting across all UI elements
 """
 from typing import List, Dict
 from datetime import datetime
@@ -10,6 +17,7 @@ from rich.progress import Progress, TaskID
 from rich.live import Live
 
 from .discovery import FileInfo, DiscoveryResult
+from .constants import DEFAULT_TABLE_WIDTH, PROCESSING_REFRESH_RATE
 
 
 def display_welcome() -> None:
@@ -183,7 +191,7 @@ def _create_live_files_table(files: List[FileInfo]) -> Table:
         border_style="blue"
     )
     
-    table.add_column("📁 File Path", style="white", width=50)
+    table.add_column("📁 File Path", style="white", width=DEFAULT_TABLE_WIDTH)
     table.add_column("📏 Size", justify="right", style="cyan", width=8)
     table.add_column("📅 Modified", justify="center", width=14)
     table.add_column("📊 Status", justify="center", width=22)
@@ -224,7 +232,7 @@ def create_live_processing_context(files: List[FileInfo], directory: str):
     
     live = Live(
         create_live_processing_layout(files, directory, progress),
-        refresh_per_second=4,
+        refresh_per_second=PROCESSING_REFRESH_RATE,
         console=console
     )
     

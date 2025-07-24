@@ -1,5 +1,11 @@
 """
 File discovery and ignore handling for codectx
+
+This module handles:
+- Recursive directory traversal and file discovery
+- .codectxignore pattern matching and file filtering
+- File metadata extraction (size, modification time, checksum)
+- Comprehensive default ignore patterns for common development files
 """
 import os
 import fnmatch
@@ -7,6 +13,8 @@ import hashlib
 from pathlib import Path
 from typing import List, Set, NamedTuple
 from datetime import datetime
+
+from .constants import CHUNK_SIZE, DEFAULT_IGNORE_PATTERNS
 
 
 class FileInfo:
@@ -27,7 +35,7 @@ class FileInfo:
             with open(self.path, 'rb') as f:
                 file_hash = hashlib.sha256()
                 # Read file in chunks to handle large files efficiently
-                for chunk in iter(lambda: f.read(4096), b""):
+                for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
                     file_hash.update(chunk)
                 return file_hash.hexdigest()
         except (OSError, IOError):
@@ -121,77 +129,8 @@ def _load_ignore_patterns(directory: str) -> Set[str]:
     """Load ignore patterns from .codectxignore file and defaults"""
     patterns = set()
     
-    # Default ignore patterns
-    default_patterns = {
-        # Version control
-        ".git/*", ".svn/*", ".hg/*", ".bzr/*",
-        
-        # Python
-        "__pycache__/*", "*.pyc", "*.pyo", "*.pyd", ".Python",
-        "build/*", "develop-eggs/*", "dist/*", "downloads/*", "eggs/*", ".eggs/*",
-        "lib/*", "lib64/*", "parts/*", "sdist/*", "var/*", "wheels/*",
-        "*.egg-info/*", ".installed.cfg", "*.egg", "MANIFEST",
-        
-        # Virtual environments
-        "venv/*", "env/*", ".venv/*", ".env/*", "ENV/*", "env.bak/*", "venv.bak/*",
-        
-        # IDEs
-        ".vscode/*", ".idea/*", "*.swp", "*.swo", "*~",
-        ".DS_Store", "Thumbs.db",
-        
-        # Logs and databases
-        "*.log", "*.sql", "*.sqlite", "*.db",
-        
-        # Compiled files
-        "*.com", "*.class", "*.dll", "*.exe", "*.o", "*.so",
-        
-        # Archives
-        "*.7z", "*.dmg", "*.gz", "*.iso", "*.jar", "*.rar", "*.tar", "*.zip",
-        
-        # Media files
-        "*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp", "*.tiff", "*.svg",
-        "*.mp3", "*.mp4", "*.avi", "*.mov", "*.wmv", "*.flv",
-        
-        # Documentation (often auto-generated)
-        "docs/_build/*", "site/*", ".mkdocs/*",
-        
-        # Node.js
-        "node_modules/*", "npm-debug.log*", "yarn-debug.log*", "yarn-error.log*",
-        
-        # Java
-        "target/*", "*.jar", "*.war", "*.ear",
-        
-        # C/C++
-        "*.o", "*.so", "*.a", "*.lib", "*.dll",
-        
-        # Rust
-        "target/*", "Cargo.lock",
-        
-        # Go
-        "vendor/*", "*.exe",
-        
-        # Ruby
-        ".bundle/*", "vendor/bundle/*", ".byebug_history",
-        
-        # OS generated
-        ".DS_Store*", "ehthumbs.db", "Icon\r", "Thumbs.db",
-        
-        # Temporary files
-        "*.tmp", "*.temp", "*.bak", "*.backup", "*.old",
-        
-        # Coverage reports
-        "htmlcov/*", ".coverage", ".coverage.*", "coverage.xml", "*.cover",
-        
-        # Testing
-        ".pytest_cache/*", ".tox/*", ".nox/*",
-        
-        # Jupyter
-        ".ipynb_checkpoints/*",
-        
-        # Environment files
-        ".env", ".env.local", ".env.*.local",
-    }
-    patterns.update(default_patterns)
+    # Use default ignore patterns from constants
+    patterns.update(DEFAULT_IGNORE_PATTERNS)
     
     # Load custom patterns from .codectxignore
     ignore_file = os.path.join(directory, ".codectxignore")
