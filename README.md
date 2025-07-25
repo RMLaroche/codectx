@@ -22,6 +22,7 @@ codectx
 ```bash
 codectx                    # Update changed files only (default)
 codectx --scan-all         # Process all files
+codectx --signature-mode   # Extract class/method signatures (fast, offline)
 codectx --mock-mode        # Test without API calls  
 codectx --copy-mode        # Copy content without AI
 codectx --status           # Show file status
@@ -32,8 +33,10 @@ codectx --status           # Show file status
 1. Scans your directory for code files
 2. Only processes files that changed since last run (checksum-based)
 3. Small files (<200 tokens) → copied as-is
-4. Large files (≥200 tokens) → AI summarized
+4. Large files (≥200 tokens) → AI summarized or signature extracted
 5. Generates `codectx.md` with structured summaries
+
+**Signature Mode**: Uses static analysis to extract class and method signatures without AI, supporting Python, Java, and JavaScript/TypeScript. Fast and works offline!
 
 ## Configuration
 
@@ -58,6 +61,7 @@ codectx --version                  # Show version
 
 # Processing modes  
 codectx --scan-all                 # Process all files (not just changed)
+codectx --signature-mode           # Extract class/method signatures (fast, offline)
 codectx --mock-mode                # Test without API calls
 codectx --copy-mode                # Raw content only (no AI)
 codectx --status                   # Show file status without processing

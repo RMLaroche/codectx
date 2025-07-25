@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 
 from .discovery import FileInfo
+from .static_analyzer import StaticAnalyzer, format_signatures_output
 
 
 class ProcessingMode(Enum):
@@ -18,6 +19,7 @@ class ProcessingMode(Enum):
     AI_SUMMARIZATION = "ai"
     MOCK = "mock"
     COPY = "copy"
+    SIGNATURE = "signature"
 
 
 class ProcessingConfig(NamedTuple):
@@ -48,6 +50,18 @@ class FileProcessor:
         self.config = config
         self.existing_summaries: Dict[str, SummaryMetadata] = {}
         self._load_existing_summaries()
+        
+        # Initialize static analyzer for signature mode
+        if config.mode == ProcessingMode.SIGNATURE:
+            try:
+                self.static_analyzer = StaticAnalyzer()
+            except ImportError as e:
+                raise ImportError(
+                    f"Static analyzer initialization failed: {e}\n"
+                    "Please install tree-sitter-languages: pip install tree-sitter-languages"
+                )
+        else:
+            self.static_analyzer = None
     
     def process_files(self, files: List[FileInfo], mode: str = "all") -> List[str]:
         """
@@ -240,7 +254,19 @@ Total files processed: {total_count}
             # Estimate token count (rough approximation)
             token_count = len(content.split()) + len(content) // 4
             
-            if token_count < self.config.token_threshold or self.config.mode == ProcessingMode.COPY:
+            # Handle different processing modes
+            if self.config.mode == ProcessingMode.SIGNATURE:
+                # Use static analysis for signature extraction
+                if self.static_analyzer:
+                    signatures = self.static_analyzer.analyze_file(file_info.path, content)
+                    return format_signatures_output(file_info.relative_path, signatures, file_info.checksum)
+                else:
+                    return self._format_summary(
+                        file_info.relative_path, 
+                        "Error: Static analyzer not initialized", 
+                        checksum=file_info.checksum
+                    )
+            elif token_count < self.config.token_threshold or self.config.mode == ProcessingMode.COPY:
                 # Use raw content for small files or copy mode
                 return self._format_summary(file_info.relative_path, content, checksum=file_info.checksum)
             else:

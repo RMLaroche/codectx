@@ -47,6 +47,7 @@ Examples:
   codectx /path/to/project   # Update changed files in specified directory  
   codectx --status .         # Show file status summary without processing
   codectx --scan-all .       # Process all files (override update mode)
+  codectx --signature-mode . # Extract class/method signatures (fast, offline)
   codectx --mock-mode .      # Test without API calls
   codectx --copy-mode .      # Copy content without AI summarization
         """
@@ -80,6 +81,11 @@ Examples:
         '--copy-mode',
         action='store_true',
         help='Copy file content without AI summarization'
+    )
+    parser.add_argument(
+        '--signature-mode',
+        action='store_true',
+        help='Extract class/method signatures without AI (faster, works offline)'
     )
     
     # Configuration arguments
@@ -138,7 +144,9 @@ Examples:
 def _create_config(args: argparse.Namespace) -> ProcessingConfig:
     """Create processing configuration from arguments"""
     # Determine processing mode
-    if args.mock_mode:
+    if args.signature_mode:
+        mode = ProcessingMode.SIGNATURE
+    elif args.mock_mode:
         mode = ProcessingMode.MOCK
     elif args.copy_mode:
         mode = ProcessingMode.COPY
@@ -226,6 +234,7 @@ def _run_update_mode(directory: str, config: ProcessingConfig) -> None:
     
     # Show processing mode
     mode_messages = {
+        ProcessingMode.SIGNATURE: "🔍 Running in signature mode (static analysis)",
         ProcessingMode.MOCK: "🤖 Running in mock mode (no API calls)",
         ProcessingMode.COPY: "📄 Running in copy mode (raw content only)",
         ProcessingMode.AI_SUMMARIZATION: "🤖 Running AI summarization"
@@ -295,6 +304,7 @@ def _run_scan_all_mode(directory: str, config: ProcessingConfig) -> None:
     
     # Show processing mode
     mode_messages = {
+        ProcessingMode.SIGNATURE: "🔍 Running in signature mode (static analysis)",
         ProcessingMode.MOCK: "🤖 Running in mock mode (no API calls)",
         ProcessingMode.COPY: "📄 Running in copy mode (raw content only)",
         ProcessingMode.AI_SUMMARIZATION: "🤖 Running AI summarization"

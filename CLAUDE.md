@@ -31,6 +31,9 @@ codectx --mock-mode
 # Copy mode (raw content without summarization)
 codectx --copy-mode
 
+# Signature mode (static analysis without AI)
+codectx --signature-mode
+
 # Show help
 codectx --help
 ```
@@ -54,9 +57,13 @@ Configuration is done via environment variables:
 
 ### Core Workflow
 1. **Directory Walking** (`cli.py`): Traverses directory structure, respecting ignore patterns
-2. **File Processing** (`file_processor.py`): Reads file content and estimates token counts (rough estimation)
-3. **AI Summarization** (`api_client.py`): Sends files to AI API for structured summaries
-4. **Output Generation** (`file_writer.py`): Writes all summaries to `codectx.md`
+2. **File Processing** (`processing.py`): Reads file content and handles multiple processing modes
+3. **Processing Modes**:
+   - **AI Summarization**: Sends files to AI API for structured summaries
+   - **Signature Mode**: Uses static analysis to extract class/method signatures
+   - **Mock Mode**: Generates fake summaries for testing
+   - **Copy Mode**: Raw content without processing
+4. **Output Generation**: Writes all summaries to `codectx.md`
 
 ### Package Structure
 
@@ -64,24 +71,19 @@ Configuration is done via environment variables:
 codectx/
 ├── __init__.py          # Package initialization and version info
 ├── cli.py              # Main CLI entry point and argument parsing
-├── api_client.py       # AI API communication with error handling
-├── config.py           # Configuration management via environment variables
-├── file_processor.py   # File reading with encoding detection
-├── ignore_handler.py   # .codectxignore processing with smart defaults
-├── file_writer.py      # Output generation to codectx.md
-├── progress_display.py # Rich console interface
-└── utils.py           # Utility functions (timestamps, etc.)
+├── discovery.py        # File discovery and ignore pattern handling
+├── processing.py       # Core file processing with multiple modes
+├── static_analyzer.py  # Static analysis for signature extraction
+└── ui.py              # Rich console interface and progress display
 ```
 
 ### Key Modules
 
 - **`cli.py`**: Main entry point with professional CLI interface and error handling
-- **`api_client.py`**: Robust API communication with timeout handling and error recovery
-- **`config.py`**: Environment-based configuration with sensible defaults
-- **`ignore_handler.py`**: Smart file filtering with built-in patterns for common dev files
-- **`file_processor.py`**: Enhanced file reading with encoding detection and binary file handling
-- **`file_writer.py`**: Structured output generation with metadata headers
-- **`progress_display.py`**: Improved Rich console interface with better formatting
+- **`discovery.py`**: File discovery with smart ignore patterns and checksum calculation
+- **`processing.py`**: Core processing engine supporting AI, signature, mock, and copy modes
+- **`static_analyzer.py`**: Static code analysis using Python AST and Tree-sitter (when available)
+- **`ui.py`**: Rich console interface with real-time progress display
 
 ### File Ignore System
 The tool respects a `.codectxignore` file in the target directory using glob patterns:
@@ -91,25 +93,39 @@ __pycache__/*
 *.tmp
 ```
 
-### AI Summarization Logic
+### Processing Modes
+
+#### AI Summarization Logic
 - Files with <200 estimated tokens: copied as raw content
 - Files with ≥200 estimated tokens: sent to AI for structured summary
 - Token estimation: rough approximation (characters ÷ 4)
+- Requires API key and internet connection
+
+#### Signature Mode (Static Analysis)
+- Uses Python's built-in AST module for Python files (fallback mode)
+- Tree-sitter parsers for Java, JavaScript, TypeScript (when available)
+- Extracts class definitions, method signatures, function signatures
+- Includes type annotations, decorators, and inheritance information
+- Works offline without API key
+- Fast processing for all file sizes
+
+#### Other Modes
 - Mock mode: simulates API calls with fake summaries for testing
 - Copy mode: forces raw content output for all files
 
 ### Output Format
 All summaries are written to `codectx.md` with structured markdown including:
-- File path and processing type (SUMMARIZED/RAW CONTENT)
-- Role/purpose description
-- Classes and methods (for summarized files)
-- Dependencies and imports
+- File path and processing timestamp with checksum
+- Processing type (AI SUMMARIZED/SIGNATURE ANALYSIS/RAW CONTENT)
+- For AI mode: Role/purpose description, classes, methods, dependencies
+- For signature mode: Structured class and method signatures with type information
 
 ## Dependencies
 
 - **requests**: HTTP client for AI API calls
 - **rich**: Console formatting and progress display
 - **PyYAML**: YAML configuration file parsing
+- **tree-sitter-languages**: Multi-language parsing for signature extraction (optional)
 
 ## Development Notes
 
