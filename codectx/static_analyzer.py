@@ -562,17 +562,18 @@ class StaticAnalyzer:
 
 
 def format_signatures_output(file_path: str, signatures: List[CodeSignature], checksum: str) -> str:
-    """Format signatures into markdown output"""
+    """Format signatures into unified markdown output with heritage support"""
     from datetime import datetime
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     output = f"## {file_path}\n\n"
     output += f"Analyzed on {timestamp} (checksum: {checksum})\n\n"
-    output += "**SIGNATURE ANALYSIS**\n\n"
+    output += "**ANALYSIS MODE**: Signature Analysis\n\n"
     
     if not signatures:
-        output += "No signatures found.\n\n"
+        output += "### Overview\n"
+        output += "No code signatures found.\n\n"
         return output
     
     # Group by type
@@ -580,23 +581,137 @@ def format_signatures_output(file_path: str, signatures: List[CodeSignature], ch
     methods = [s for s in signatures if s.type == 'method']
     functions = [s for s in signatures if s.type == 'function']
     
+    # Add overview section
+    output += "### Overview\n"
+    overview_items = []
     if classes:
-        output += "### Classes\n"
+        class_types = {}
         for cls in classes:
-            visibility_str = f" ({cls.visibility})" if cls.visibility else ""
-            output += f"- **{cls.name}**{visibility_str}: `{cls.signature}`\n"
+            class_types[cls.type] = class_types.get(cls.type, 0) + 1
+        
+        type_desc = []
+        if 'class' in class_types:
+            type_desc.append(f"{class_types['class']} class{'es' if class_types['class'] > 1 else ''}")
+        if 'interface' in class_types:
+            type_desc.append(f"{class_types['interface']} interface{'s' if class_types['interface'] > 1 else ''}")
+        overview_items.append(f"**Classes**: {', '.join(type_desc)}")
+    
+    if functions:
+        overview_items.append(f"**Functions**: {len(functions)} global function{'s' if len(functions) > 1 else ''}")
+    
+    if methods:
+        overview_items.append(f"**Methods**: {len(methods)} method{'s' if len(methods) > 1 else ''}")
+    
+    for item in overview_items:
+        output += f"- {item}\n"
+    output += "\n"
+    
+    # Classes section with enhanced formatting
+    if classes:
+        output += "### Classes\n\n"
+        for cls in classes:
+            # Class header with type and heritage
+            class_type = "Interface" if cls.type == 'interface' else "Class"
+            output += f"#### **{cls.name}**\n"
+            
+            # Code block for signature
+            output += "```python\n" if file_path.endswith('.py') else "```java\n" if file_path.endswith('.java') else "```javascript\n"
+            output += f"{cls.signature}\n"
+            output += "```\n"
+            
+            # Add heritage information if available
+            heritage_info = _extract_heritage_info(cls.signature, cls.type)
+            if heritage_info:
+                output += f"*{heritage_info}*\n"
+            
+            # Visibility and decorators
+            metadata = []
+            if cls.visibility:
+                metadata.append(f"Visibility: {cls.visibility}")
+            if cls.decorators:
+                metadata.append(f"Decorators: {', '.join(cls.decorators)}")
+            
+            if metadata:
+                output += f"- **Metadata**: {' | '.join(metadata)}\n"
             
             # Show methods for this class
             class_methods = [m for m in methods if m.parent_class == cls.name]
-            for method in class_methods:
-                visibility_str = f" ({method.visibility})" if method.visibility else ""
-                output += f"  - `{method.name}`{visibility_str}: `{method.signature}`\n"
-        output += "\n"
+            if class_methods:
+                output += "\n**Methods:**\n"
+                for method in class_methods:
+                    visibility_str = f" ({method.visibility})" if method.visibility else ""
+                    decorators_str = f" {' '.join(method.decorators)}" if method.decorators else ""
+                    
+                    # Format method signature properly
+                    method_sig = method.signature
+                    if method_sig.startswith('def ') or method_sig.startswith('async def '):
+                        method_sig = method_sig.replace('def ', '').replace('async def ', '')
+                        if method_sig.endswith(':'):
+                            method_sig = method_sig[:-1]
+                    
+                    output += f"- `{decorators_str}{method_sig}`{visibility_str}\n"
+            
+            output += "\n"
     
+    # Functions section
     if functions:
-        output += "### Functions\n"
+        output += "### Functions\n\n"
         for func in functions:
-            output += f"- `{func.name}`: `{func.signature}`\n"
+            # Clean up function signature
+            func_sig = func.signature
+            if func_sig.startswith('def ') or func_sig.startswith('async def '):
+                func_sig = func_sig.replace('def ', '').replace('async def ', '')
+                if func_sig.endswith(':'):
+                    func_sig = func_sig[:-1]
+            
+            decorators_str = f"{' '.join(func.decorators)} " if func.decorators else ""
+            output += f"- `{decorators_str}{func_sig}`\n"
+        
         output += "\n"
     
     return output
+
+
+def _extract_heritage_info(signature: str, class_type: str) -> str:
+    """Extract and format heritage information from class signature"""
+    heritage_patterns = {
+        # Python: class Child(Parent, Mixin):
+        'python': r'class\s+\w+\s*\(([^)]+)\)',
+        # Java: class Child extends Parent implements Interface
+        'java': r'(?:extends\s+(\w+))|(?:implements\s+([\w,\s]+))',
+        # JavaScript: class Child extends Parent
+        'javascript': r'class\s+\w+\s+extends\s+(\w+)'
+    }
+    
+    import re
+    
+    # Detect language from signature patterns
+    if signature.startswith('class ') and '(' in signature:
+        # Python style
+        match = re.search(heritage_patterns['python'], signature)
+        if match:
+            parents = [p.strip() for p in match.group(1).split(',')]
+            if parents and parents[0]:
+                return f"Inherits from: {', '.join(parents)}"
+    
+    elif 'extends' in signature or 'implements' in signature:
+        # Java style
+        heritage_parts = []
+        if 'extends' in signature:
+            extends_match = re.search(r'extends\s+(\w+)', signature)
+            if extends_match:
+                heritage_parts.append(f"Extends: {extends_match.group(1)}")
+        
+        if 'implements' in signature:
+            implements_match = re.search(r'implements\s+([\w,\s]+)', signature)
+            if implements_match:
+                interfaces = [i.strip() for i in implements_match.group(1).split(',')]
+                heritage_parts.append(f"Implements: {', '.join(interfaces)}")
+        
+        if heritage_parts:
+            return ' | '.join(heritage_parts)
+    
+    elif class_type == 'interface':
+        return "Interface definition"
+    
+    return ""

@@ -153,17 +153,21 @@ Total files processed: {total_count}
             raise IOError(f"Failed to write to {self.config.output_file}: {e}")
     
     def _format_summary(self, file_path: str, content: str, summary_date: datetime = None, checksum: str = None) -> str:
-        """Format a file summary with timestamp and checksum metadata"""
+        """Format a file summary with unified timestamp and checksum metadata"""
         if summary_date is None:
             summary_date = datetime.now()
         
         timestamp_str = summary_date.strftime('%Y-%m-%d %H:%M:%S')
         
-        # Add checksum to timestamp line if available
-        if checksum:
-            timestamp_line = f"Summarized on {timestamp_str} (checksum: {checksum})"
+        # Determine analysis mode based on content
+        if "SIGNATURE ANALYSIS" in content:
+            mode_type = "Signature Analysis"
+        elif self.config.mode == ProcessingMode.COPY:
+            mode_type = "Raw Content"
+        elif self.config.mode == ProcessingMode.MOCK:
+            mode_type = "Mock Analysis"
         else:
-            timestamp_line = f"Summarized on {timestamp_str}"
+            mode_type = "AI Analysis"
         
         # Remove duplicate header if content already starts with "## File:"
         cleaned_content = content
@@ -172,11 +176,72 @@ Total files processed: {total_count}
             if first_line_end != -1:
                 cleaned_content = content[first_line_end + 1:].lstrip()
         
+        # For signature analysis, content already includes the unified format
+        if "**ANALYSIS MODE**:" in content:
+            return content
+        
+        # For other modes, format into unified structure
+        if self.config.mode in [ProcessingMode.AI_SUMMARIZATION, ProcessingMode.MOCK]:
+            formatted_content = self._format_ai_content_unified(cleaned_content)
+        else:
+            # Raw content mode
+            formatted_content = f"### Overview\n- **Type**: Raw file content\n\n### Content\n```\n{cleaned_content}\n```"
+        
         return f"""## {file_path}
 
-{timestamp_line}
+Analyzed on {timestamp_str} (checksum: {checksum})
 
-{cleaned_content}"""
+**ANALYSIS MODE**: {mode_type}
+
+{formatted_content}"""
+    
+    def _format_ai_content_unified(self, content: str) -> str:
+        """Format AI content into unified structure"""
+        # Parse existing AI content and restructure it
+        lines = content.split('\n')
+        
+        # Extract role, classes, functions, dependencies from AI content
+        overview_items = []
+        classes_section = ""
+        functions_section = ""
+        dependencies_section = ""
+        
+        # Look for structured AI content patterns
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if line.startswith('- **Role**:'):
+                role = line.replace('- **Role**:', '').strip()
+                overview_items.append(f"- **Role**: {role}")
+            elif line.startswith('- **Classes**:'):
+                classes = line.replace('- **Classes**:', '').strip()
+                if classes and classes != "None":
+                    overview_items.append(f"- **Classes**: {classes}")
+            elif line.startswith('- **Global Functions**:') or line.startswith('- **Functions**:'):
+                functions = line.replace('- **Global Functions**:', '').replace('- **Functions**:', '').strip()
+                if functions and functions != "None":
+                    overview_items.append(f"- **Functions**: {functions}")
+            elif line.startswith('- **Dependencies**:'):
+                deps = line.replace('- **Dependencies**:', '').strip()
+                if deps and deps != "None":
+                    dependencies_section = f"### Dependencies\n- {deps}\n"
+        
+        # Build unified format
+        result = ""
+        
+        # Overview section
+        if overview_items:
+            result += "### Overview\n"
+            result += '\n'.join(overview_items) + "\n\n"
+        else:
+            # Fallback: use entire content as overview
+            result += "### Overview\n"
+            result += f"- **Analysis**: {content[:200]}{'...' if len(content) > 200 else ''}\n\n"
+        
+        # Add dependencies if found
+        if dependencies_section:
+            result += dependencies_section
+        
+        return result.strip()
     
     def get_file_status(self, files: List[FileInfo]) -> Dict[str, str]:
         """Get status of files (up-to-date, outdated, new) based on checksums"""
@@ -388,8 +453,8 @@ Keep the summary concise and focused on the most important aspects."""
         """Generate a mock summary for testing with simulated delay"""
         # Simulate HTTP call time
         time.sleep(0.5)
-        return """- **Role**: This is a mocked summary of the file.
-- **Classes**: None
-- **Global Functions**: None
-- **Dependencies**: None"""
+        return """- **Role**: This is a mocked summary of the file for testing purposes
+- **Classes**: MockClass, TestHelper  
+- **Global Functions**: mock_function(), test_utility()
+- **Dependencies**: unittest, pytest"""
     
